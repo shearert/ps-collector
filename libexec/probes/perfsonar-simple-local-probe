@@ -106,8 +106,11 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
            self.add_message("Last succesfull run at %s" % timestamp)
            oldTime = time.strptime(timestamp, "%a, %d %b %Y %H:%M:%S")
            newStart = time.mktime(localtime())-time.mktime(oldTime)
+           # If it the value is less than the one allowed use maxstart
            if newStart < int(self.maxstart):
                self.start = int(newStart)
+           else:
+               self.start = int(self.maxstart)
         else:
             self.add_message("No previous sucesfull run found")
 
