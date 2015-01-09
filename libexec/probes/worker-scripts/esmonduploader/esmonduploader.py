@@ -1,3 +1,4 @@
+import os
 import time
 from time import strftime
 from time import localtime
@@ -5,7 +6,11 @@ from time import localtime
 from optparse import OptionParser
 from fractions import Fraction
 
-from esmond.api.client.perfsonar.query import ApiConnect, ApiFilters
+from esmond.api.client.perfsonar.query import ApiFilters
+from esmond.api.client.perfsonar.query import ApiConnect
+# New module with the socks5 that inherics ApiConnect
+from SocksApiConnect import SocksApiConnect
+
 from esmond.api.client.perfsonar.post import MetadataPost, EventTypePost, EventTypeBulkPost
 
 #allowedEvents = ['packet-loss-rate', 'packet-trace', 'packet-retransmits', 'throughput', 'throughput-subintervals', 'failures', 'packet-count-sent', 'packet-count-lost', 'histogram-owdelay', 'histogram-ttl']
@@ -47,6 +52,7 @@ class EsmondUploader(object):
         filters.verbose = verbose
         filters.time_start = time.time() + start
         filters.time_end = time.time() + end
+        # gfiltesrs and in general g* means connecting to the cassandra db at the central place ie goc
         gfilters.verbose = False        
         gfilters.time_start = time.time() + 5*start
         gfilters.time_end = time.time()
@@ -57,7 +63,7 @@ class EsmondUploader(object):
         self.username = username
         self.key = key
         self.goc = goc
-        self.conn = ApiConnect(self.connect, filters)
+        self.conn = SocksApiConnect(self.connect, filters)
         self.gconn = ApiConnect(self.goc, gfilters)
                 
         # Metadata variables
