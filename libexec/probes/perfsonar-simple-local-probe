@@ -102,10 +102,15 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
 
     def computeStartTime(self, filename):
         timestamp = self.ReadTimeStampFile(filename)
-        if not timestamp == 1:#The probe ran succesfully:  
-           self.add_message("Last succesfull run at %s" % timestamp)
-           oldTime = time.strptime(timestamp, "%a, %d %b %Y %H:%M:%S")
-           newStart = time.mktime(localtime())-time.mktime(oldTime)
+        timeFormat = "%a, %d %b %Y %H:%M:%S"
+        if not timestamp == 1:#The probe ran succesfully:
+           try:
+               oldTime = time.strptime(timestamp, timeFormat)
+               self.add_message("Last succesfull run at %s" % timestamp)
+               newStart = time.mktime(localtime())-time.mktime(oldTime)
+           except ValueError:
+               self.out_debug("Timestamp %s, in file %s not in correct format %s" % (timestamp, filename, timeFormat))
+               newStart = self.start
            # If it the value is less than the one allowed use maxstart
            if newStart < int(self.maxstart):
                self.start = int(newStart)
