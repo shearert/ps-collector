@@ -15,7 +15,7 @@ from esmond.api.client.perfsonar.post import MetadataPost, EventTypePost, EventT
 
 #allowedEvents = ['packet-loss-rate', 'packet-trace', 'packet-retransmits', 'throughput', 'throughput-subintervals', 'failures', 'packet-count-sent', 'packet-count-lost', 'histogram-owdelay', 'histogram-ttl']
 
-allowedEvents = ['packet-loss-rate', 'throughput', 'packet-trace', 'packet-retransmits', 'histogram-owdelay']
+allowedEvents = ['packet-loss-rate', 'throughput', 'packet-trace', 'packet-retransmits', 'histogram-owdelay', 'packet-count-sent', 'packet-count-lost']
 
 skipEvents = ['histogram-owdelay', 'histogram-ttl']
 
@@ -44,7 +44,7 @@ parser.add_option('-x', '--summaries', help='upload and read data summaries', de
 class EsmondUploader(object):
 
     def add2log(self, log):
-        print strftime("%a, %d %b %Y %H:%M:%S ", localtime()), log
+        print strftime("%a, %d %b %Y %H:%M:%S ", localtime()), str(log)
     
     def __init__(self,verbose,start,end,connect,username='afitz',key='fc077a6a133b22618172bbb50a1d3104a23b2050', goc='http://osgnetds.grid.iu.edu'):
 
@@ -66,19 +66,7 @@ class EsmondUploader(object):
         self.conn = SocksApiConnect(self.connect, filters)
         self.gconn = ApiConnect(self.goc, gfilters)
                 
-        # Metadata variables
-        self.destination = []
-        self.input_destination = []
-        self.input_source = []
-        self.measurement_agent = []
-        self.source = []
-        self.subject_type = []
-        self.time_duration = []
-        self.tool_name = []
-        self.event_types = []
-        self.summaries = []
-        self.datapoint = []
-        self.metadata_key = []
+        # List to store the old metadata to be sure the same metadata is not upload twice
         self.old_list = []
    
     # Get Existing GOC Data
@@ -104,7 +92,7 @@ class EsmondUploader(object):
             else:
                 # It is a new metadata
                 # Building the arguments for the post
-                args = {
+                arguments = {
                     "subject_type": md.subject_type,
                     "source": md.source,
                     "destination": md.destination,
@@ -114,14 +102,18 @@ class EsmondUploader(object):
                     "input_destination": self.goc
                 }
                 if not md.time_duration is None:
-                    args["time_duration"] = md.time_duration
+                    arguments["time_duration"] = md.time_duration
                 # Assigning each metadata object property to class variables
                 event_types = md.event_types
                 metadata_key = md.metadata_key
+                if disp:
+                    self.add2log("event_types")
+                    self.add2log(event_types)
                 # print extra debugging only if requested
                 self.add2log("Reading New METADATA/DATA %s" % (md.metadata_key))
                 if disp:
-                    print args
+                    self.add2log("Posting args: ")
+                    self.add2log(arguments)
                 # Get Events and Data Payload
                 # temp_list holds the sumaries for all event types for metadata i
                 summaries = [] 
@@ -138,37 +130,31 @@ class EsmondUploader(object):
                         summaries.append([])
                     # Skip readind data points for certain event types to improv efficiency  
                     if eventype not in allowedEvents:                                                                                                       
-                    #if eventype in skipEvents:
-                        #self.add2log("Skipped reading data for event type: %s for metadatda %d" % (eventype, i+1))
                         continue
                     dpay = et.get_data()
                     for dp in dpay.data:
                         tup = (dp.ts_epoch, dp.val)
                         datapoints[eventype].append(tup)
-            self.postData2(args, event_types, summaries, metadata_key, datapoints, disp)
+                if disp:
+                    self.add2log("Datapoints:")
+                    self.add2log(datapoints)
+            self.postData2(arguments, event_types, summaries, metadata_key, datapoints, disp)
 
 
-    def postData2(self, args, event_types, summaries, metadata_key, datapoints, disp=False):
-        mp = MetadataPost(self.goc, username=self.username, api_key=self.key, **args)
-        for event_type, summary in zip(self.event_types, self.summaries):
+    def postData2(self, arguments, event_types, summaries, metadata_key, datapoints, disp=False):
+        mp = MetadataPost(self.goc, username=self.username, api_key=self.key, **arguments)
+        for event_type, summary in zip(event_types, summaries):
             mp.add_event_type(event_type)
             if summary:
                 mp.add_summary_type(event_type, summary[0][0], summary[0][1])
-        self.add2log("posting NEW METADATA/DATA")
         new_meta = mp.post_metadata()
         # Catching bad posts                                                                                                                              
-        try:
-            new_meta.metadata_key
-        except:
-            print 'ERROR'
-            print args
-            print event_types
-            print summaries
-            return
-        self.add2log("Finished posting summaries and metadata")
+        if new_meta is None:
+            raise Exception("Post metada empty, possible problem with user and key")
+        self.add2log("posting NEW METADATA/DATA %s" % new_meta.metadata_key)
         et = EventTypeBulkPost(self.goc, username=self.username, api_key=self.key, metadata_key=new_meta.metadata_key)
         for event_type in event_types:
-            # datapoints are tuples the first field is epoc the second the value                                                                          
+            # datapoint are tuples the first field is epoc the second the value                                                                          
             for datapoint in datapoints[event_type]:
                 # packet-loss-rate is read as a float but should be uploaded as a dict with denominator and numerator                                     
                 if 'packet-loss-rate' in event_type:
@@ -181,7 +167,6 @@ class EsmondUploader(object):
                     # For the rests the data points are uploaded as they are read                                                                            
                 else:
                     et.add_data_point(event_type, datapoint[0], datapoint[1])
-        # Posting the data once all data points on the same metadata have been added                                                                     
         et.post_data()
         self.add2log("Finish posting data for metadata")
 
