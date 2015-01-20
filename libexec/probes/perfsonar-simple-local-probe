@@ -36,6 +36,7 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
         self.debug = False
         self.maxstart = 43200
         self.summaries = False
+        self.allowedEvents = "packet-loss-rate, throughput, packet-trace, packet-retransmits, histogram-owdelay, packet-count-sent,packet-count-lost"
         # Add the options so the parsing knows what to expect
         self.addopt("", "username=", "--username username the username for uploading data to the goc")
         self.addopt("", "key=", "--key key the key for uploading data to the goc")
@@ -46,6 +47,7 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
         self.addopt("", "timeout=", "--timeout Seconds. A softimeout for how long the probes are allowed to run")
         self.addopt("", "summary=", "--summary True or False. Read and upload data summaries or not")
         self.addopt("", "maxstart=", "--maxstart the max number in seconds it will go in the past to retrieve information")
+        self.addopt("", "allowedEvents=", "--allowedEvents a list with the allowed event types")
 
     def parseopt(self):
         """parse options specific to network monitroing probe and return options, optlist and reminder to
@@ -71,6 +73,9 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
                 self.summaries = arg
             elif opt == '--maxstart':
                 self.maxstart = arg
+            elif opt =='--allowedEvents':
+                # Replacing white spaces with nothing
+                self.allowedEvents = arg.replace(" ", '')
             if self.host == self.localhost:
                 self.is_local = True
             else:
@@ -79,7 +84,7 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
 
     def runCallerScript(self):
         #Runs the caller script for esmond and parses the result 
-        cmd = "source ./esmondCaller.sh %s %d %s %s %s %s %s %s" % ("http://" + self.host, -int(self.start), self.username, self.key, self.goc_url, self.debug, self.soft_timeout, self.summaries)
+        cmd = "source ./esmondCaller.sh %s %d %s %s %s %s %s %s %s" % ("http://" + self.host, -int(self.start), self.username, self.key, self.goc_url, self.debug, self.soft_timeout, self.summaries, self.allowedEvents)
         ec, out = rsvprobe.run_command(cmd, workdir="/usr/libexec/rsv/probes/worker-scripts")
         return out
 

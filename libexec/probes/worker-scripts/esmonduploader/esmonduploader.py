@@ -13,11 +13,6 @@ from SocksApiConnect import SocksApiConnect
 
 from esmond.api.client.perfsonar.post import MetadataPost, EventTypePost, EventTypeBulkPost
 
-#allowedEvents = ['packet-loss-rate', 'packet-trace', 'packet-retransmits', 'throughput', 'throughput-subintervals', 'failures', 'packet-count-sent', 'packet-count-lost', 'histogram-owdelay', 'histogram-ttl']
-
-allowedEvents = ['packet-loss-rate', 'throughput', 'packet-trace', 'packet-retransmits', 'histogram-owdelay', 'packet-count-sent', 'packet-count-lost']
-
-skipEvents = ['histogram-owdelay', 'histogram-ttl']
 
 
 # Set filter object
@@ -38,6 +33,7 @@ parser.add_option('-k', '--key', help='the key to upload the information to the 
 parser.add_option('-g', '--goc', help='the goc address to upload the information to', dest='goc', default='http://osgnetds.grid.iu.edu', action='store')
 parser.add_option('-t', '--timeout', help='the maxtimeout that the probe is allowed to run in secs', dest='timeout', default=1000, action='store')
 parser.add_option('-x', '--summaries', help='upload and read data summaries', dest='summary', default=True, action='store')
+parser.add_option('-a', '--allowedEvents', help='The allowedEvents', dest='allowedEvents', default=False, action='store')
 
 (opts, args) = parser.parse_args()
 
@@ -46,8 +42,7 @@ class EsmondUploader(object):
     def add2log(self, log):
         print strftime("%a, %d %b %Y %H:%M:%S ", localtime()), str(log)
     
-    def __init__(self,verbose,start,end,connect,username='afitz',key='fc077a6a133b22618172bbb50a1d3104a23b2050', goc='http://osgnetds.grid.iu.edu'):
-
+    def __init__(self,verbose,start,end,connect,username='afitz',key='fc077a6a133b22618172bbb50a1d3104a23b2050', goc='http://osgnetds.grid.iu.edu', allowedEvents='packet-loss-rate'):
         # Filter variables
         filters.verbose = verbose
         filters.time_start = time.time() + start
@@ -68,6 +63,8 @@ class EsmondUploader(object):
                 
         # List to store the old metadata to be sure the same metadata is not upload twice
         self.old_list = []
+        # Conver the allowedEvents into a list
+        self.allowedEvents = allowedEvents.split(',')
    
     # Get Existing GOC Data
     def getGoc(self, disp=False):
@@ -79,8 +76,7 @@ class EsmondUploader(object):
     # Get Data
     def getData(self, disp=False, summary=True):
         self.getGoc(disp)
-        self.add2log("Only reading data for event types: %s" % (str(allowedEvents)))
-        #self.add2log("Skipped reading data for event types: %s" % (str(skipEvents)))
+        self.add2log("Only reading data for event types: %s" % (str(self.allowedEvents)))
         if summary:
             self.add2log("Reading Summaries")
         else:
@@ -115,7 +111,6 @@ class EsmondUploader(object):
                     self.add2log("Posting args: ")
                     self.add2log(arguments)
                 # Get Events and Data Payload
-                # temp_list holds the sumaries for all event types for metadata i
                 summaries = [] 
                 # datapoints is a dict of lists
                 # Each of its members are lists of datapoints of a given event_type
@@ -129,7 +124,7 @@ class EsmondUploader(object):
                     else:
                         summaries.append([])
                     # Skip readind data points for certain event types to improv efficiency  
-                    if eventype not in allowedEvents:                                                                                                       
+                    if eventype not in self.allowedEvents:                                                                                                   
                         continue
                     dpay = et.get_data()
                     for dp in dpay.data:
