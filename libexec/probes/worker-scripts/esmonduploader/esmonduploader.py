@@ -111,7 +111,7 @@ class EsmondUploader(object):
                     self.add2log("Posting args: ")
                     self.add2log(arguments)
                 # Get Events and Data Payload
-                summaries = [] 
+                summaries = {} 
                 # datapoints is a dict of lists
                 # Each of its members are lists of datapoints of a given event_type
                 datapoints = {}
@@ -120,9 +120,9 @@ class EsmondUploader(object):
                     datapoints[eventype] = []
                     et = md.get_event_type(eventype)
                     if summary:
-                        summaries.append(et.summaries)
+                        summaries[eventype] = et.summaries
                     else:
-                        summaries.append([])
+                        summaries[eventype] = []
                     # Skip readind data points for certain event types to improv efficiency  
                     if eventype not in self.allowedEvents:                                                                                                   
                         continue
@@ -133,15 +133,16 @@ class EsmondUploader(object):
                 if disp:
                     self.add2log("Datapoints:")
                     self.add2log(datapoints)
-            self.postData2(arguments, event_types, summaries, metadata_key, datapoints, disp)
+            self.postData2(arguments, event_types, summaries, metadata_key, datapoints, summary, disp)
 
 
-    def postData2(self, arguments, event_types, summaries, metadata_key, datapoints, disp=False):
+    def postData2(self, arguments, event_types, summaries, metadata_key, datapoints, summary = True, disp=False):
         mp = MetadataPost(self.goc, username=self.username, api_key=self.key, **arguments)
-        for event_type, summary in zip(event_types, summaries):
+        for event_type in event_types:
             mp.add_event_type(event_type)
             if summary:
-                mp.add_summary_type(event_type, summary[0][0], summary[0][1])
+                for summy in summaries[event_type]:
+                    mp.add_summary_type(event_type, summy[0], summy[1])
         new_meta = mp.post_metadata()
         # Catching bad posts                                                                                                                              
         if new_meta is None:
