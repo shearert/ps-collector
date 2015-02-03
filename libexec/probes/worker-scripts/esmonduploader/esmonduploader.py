@@ -141,8 +141,15 @@ class EsmondUploader(object):
         for event_type in event_types:
             mp.add_event_type(event_type)
             if summary:
+                summary_window_map = {}
+                #organize summaries windows by type so that all windows of the same type are in an array
                 for summy in summaries[event_type]:
-                    mp.add_summary_type(event_type, summy[0], summy[1])
+                    if summy[0] not in summary_window_map:
+                        summary_window_map[summy[0]] = []
+                    summary_window_map[summy[0]].append(summy[1])
+                #Add each summary type once and give the post object the array of windows
+                for summary_type in summary_window_map:
+                    mp.add_summary_type(event_type, summary_type, summary_window_map[summary_type])
         new_meta = mp.post_metadata()
         # Catching bad posts                                                                                                                              
         if new_meta is None:

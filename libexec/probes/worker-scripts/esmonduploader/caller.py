@@ -17,7 +17,7 @@ def get_post():
     try:
         caller.getData(str2bool(opts.disp), str2bool(opts.summary))
     except Exception as err:
-        print "Error! Uunsuccessful! Exception: \"%s\" of type: \"%s\" was thrown! Quitting out." % (err,type(err))
+        print "ERROR:! Uunsuccessful! Exception: \"%s\" of type: \"%s\" was thrown! Quitting out." % (err,type(err))
         sys.exit(1)
     else:
         caller.add2log("Finished getting and posting data succesfully!")
