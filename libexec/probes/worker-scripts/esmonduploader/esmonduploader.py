@@ -1,5 +1,6 @@
 import os
 import time
+import inspect
 from time import strftime
 from time import localtime
 
@@ -45,13 +46,13 @@ class EsmondUploader(object):
     def __init__(self,verbose,start,end,connect,username='afitz',key='fc077a6a133b22618172bbb50a1d3104a23b2050', goc='http://osgnetds.grid.iu.edu', allowedEvents='packet-loss-rate'):
         # Filter variables
         filters.verbose = verbose
-        filters.time_start = time.time() + start
+        filters.time_start = time.time() - start
         filters.time_end = time.time() + end
         # gfiltesrs and in general g* means connecting to the cassandra db at the central place ie goc
         gfilters.verbose = False        
-        gfilters.time_start = time.time() + 5*start
+        gfilters.time_start = time.time() - 10*start
         gfilters.time_end = time.time()
-        gfilters.source = connect
+        gfilters.input_source = connect
 
         # Username/Key/Location/Delay
         self.connect = connect
@@ -71,7 +72,8 @@ class EsmondUploader(object):
         if disp:
             self.add2log("Getting old data...")
         for gmd in self.gconn.get_metadata():
-            self.old_list.append(gmd.metadata_key)
+            if "org_metadata_key" in gmd._data:
+                self.old_list.append(gmd._data["org_metadata_key"])
    
     # Get Data
     def getData(self, disp=False, summary=True):
@@ -150,12 +152,15 @@ class EsmondUploader(object):
                 #Add each summary type once and give the post object the array of windows
                 for summary_type in summary_window_map:
                     mp.add_summary_type(event_type, summary_type, summary_window_map[summary_type])
+        # Added the old metadata key
+        mp.add_freeform_key_value("org_metadata_key", metadata_key)
         new_meta = mp.post_metadata()
         # Catching bad posts                                                                                                                              
         if new_meta is None:
             raise Exception("Post metada empty, possible problem with user and key")
         self.add2log("posting NEW METADATA/DATA %s" % new_meta.metadata_key)
         et = EventTypeBulkPost(self.goc, username=self.username, api_key=self.key, metadata_key=new_meta.metadata_key)
+        #et = EventTypeBulkPost(self.goc, username=self.username, api_key=self.key, metadata_key=metadata_key)
         for event_type in event_types:
             # datapoint are tuples the first field is epoc the second the value                                                                          
             for datapoint in datapoints[event_type]:

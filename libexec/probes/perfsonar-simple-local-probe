@@ -84,7 +84,7 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
 
     def runCallerScript(self):
         #Runs the caller script for esmond and parses the result 
-        cmd = "source ./esmondCaller.sh %s %d %s %s %s %s %s %s %s" % ("http://" + self.host, -int(self.start), self.username, self.key, self.goc_url, self.debug, self.soft_timeout, self.summaries, self.allowedEvents)
+        cmd = "source ./esmondCaller.sh %s %d %s %s %s %s %s %s %s" % ("http://" + self.host, int(self.start), self.username, self.key, self.goc_url, self.debug, self.soft_timeout, self.summaries, self.allowedEvents)
         ec, out = rsvprobe.run_command(cmd, workdir="/usr/libexec/rsv/probes/worker-scripts")
         return out
 
