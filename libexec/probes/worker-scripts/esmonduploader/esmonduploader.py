@@ -15,7 +15,6 @@ from SocksApiConnect import SocksApiConnect
 from esmond.api.client.perfsonar.post import MetadataPost, EventTypePost, EventTypeBulkPost
 
 
-
 # Set filter object
 filters = ApiFilters()
 gfilters = ApiFilters()
@@ -46,11 +45,12 @@ class EsmondUploader(object):
     def __init__(self,verbose,start,end,connect,username='afitz',key='fc077a6a133b22618172bbb50a1d3104a23b2050', goc='http://osgnetds.grid.iu.edu', allowedEvents='packet-loss-rate'):
         # Filter variables
         filters.verbose = verbose
-        filters.time_start = time.time() - start
-        filters.time_end = time.time() + end
+        filters.time_start = time.time() - 1*start
+        #filters.time_end = time.time() + end
+        filters.time_end = time.time()
         # gfiltesrs and in general g* means connecting to the cassandra db at the central place ie goc
         gfilters.verbose = False        
-        gfilters.time_start = time.time() - 10*start
+        gfilters.time_start = time.time() - 5*start
         gfilters.time_end = time.time()
         gfilters.input_source = connect
 
@@ -77,7 +77,7 @@ class EsmondUploader(object):
    
     # Get Data
     def getData(self, disp=False, summary=True):
-        self.getGoc(disp)
+        #self.getGoc(disp)
         self.add2log("Only reading data for event types: %s" % (str(self.allowedEvents)))
         if summary:
             self.add2log("Reading Summaries")
@@ -118,23 +118,25 @@ class EsmondUploader(object):
                 # Each of its members are lists of datapoints of a given event_type
                 datapoints = {}
                 # et = event type
-                for eventype in event_types: 
+                #for eventype in event_types: 
+                for et in md.get_all_event_types():
+                    eventype = et.event_type
                     datapoints[eventype] = []
-                    et = md.get_event_type(eventype)
+                    #et = md.get_event_type(eventype)
                     if summary:
                         summaries[eventype] = et.summaries
                     else:
                         summaries[eventype] = []
                     # Skip readind data points for certain event types to improv efficiency  
-                    if eventype not in self.allowedEvents:                                                                                                   
-                        continue
+                    if eventype not in self.allowedEvents:                                                                                                  
+                       continue
                     dpay = et.get_data()
                     for dp in dpay.data:
                         tup = (dp.ts_epoch, dp.val)
                         datapoints[eventype].append(tup)
-                if disp:
-                    self.add2log("Datapoints:")
-                    self.add2log(datapoints)
+                #if disp:
+                #    self.add2log("Datapoints:")
+                #    self.add2log(datapoints)
             self.postData2(arguments, event_types, summaries, metadata_key, datapoints, summary, disp)
 
 
@@ -175,6 +177,10 @@ class EsmondUploader(object):
                     # For the rests the data points are uploaded as they are read                                                                            
                 else:
                     et.add_data_point(event_type, datapoint[0], datapoint[1])
+                    
+        if disp:
+            self.add2log("Datapoints to upload:")
+            self.add2log(et.json_payload())
         et.post_data()
         self.add2log("Finish posting data for metadata")
 
