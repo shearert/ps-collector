@@ -22,6 +22,7 @@ install:
 	cp -r etc/meta/metrics $(DESTDIR)/$(sysconfdir)/rsv/meta/
 	cp -r etc/metrics $(DESTDIR)/$(sysconfdir)/rsv/
 	#Install condor-cron configs
+	install -d $(DESTDIR)/$(sysconfdir)/condor-cron/config.d
 	cp -r etc/condor-cron/config.d $(DESTDIR)/$(sysconfdir)/condor-cron/config.d/
 	# Create the log dirs
 	install -d $(DESTDIR)/$(localstatedir)/log/rsv/metrics
