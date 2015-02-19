@@ -1,4 +1,3 @@
-
 /var/log/rsv/metrics/*org.osg.general.perfsonar-simple.log {
   weekly
   rotate 2
