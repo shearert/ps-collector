@@ -173,8 +173,13 @@ class EsmondUploader(object):
                 # packet-loss-rate is read as a float but should be uploaded as a dict with denominator and numerator                                     
                 if 'packet-loss-rate' in event_type:
                     datapointIndex = datapoints[event_type].index(datapoint)
-                    packetcountsent = datapoints['packet-count-sent'][datapointIndex][1]
-                    packetcountlost = datapoints['packet-count-lost'][datapointIndex][1]
+                    # Some extra proetection incase the number of datapoints in packet-loss-setn and packet-loss-rate does not match
+                    packetcountsent = 300
+                    packetcountlost = 0
+                    if datapointIndex < len(datapoints['packet-count-sent']):
+                        packetcountsent = datapoints['packet-count-sent'][datapointIndex][1]
+                    if datapointIndex < len(datapoints['packet-count-lost']):
+                        packetcountlost = datapoints['packet-count-lost'][datapointIndex][1]
                     et.add_data_point(event_type, datapoint[0], {'denominator': packetcountsent, 'numerator': packetcountlost})
                     # For the rests the data points are uploaded as they are read                                                         
                 else:
