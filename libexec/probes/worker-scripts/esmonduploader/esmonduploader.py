@@ -45,8 +45,9 @@ class EsmondUploader(object):
     def __init__(self,verbose,start,end,connect,username='afitz',key='fc077a6a133b22618172bbb50a1d3104a23b2050', goc='http://osgnetds.grid.iu.edu', allowedEvents='packet-loss-rate'):
         # Filter variables
         filters.verbose = verbose
-        filters.time_start = time.time() - 1*start
-        filters.time_end = time.time()
+        filters.time_start = int(time.time() - 1.1*start)
+        #Setting the end time is not needed confirmed by Andy, if not set is the same as setting it to now
+        #filters.time_end = time.time()
         filterDates = (strftime("%a, %d %b %Y %H:%M:%S ", time.gmtime(filters.time_start)), strftime("%a, %d %b %Y %H:%M:%S", time.gmtime(filters.time_end)))
         self.add2log("Data interval is from %s, to %s " %filterDates)
         # gfiltesrs and in general g* means connecting to the cassandra db at the central place ie goc
@@ -123,7 +124,7 @@ class EsmondUploader(object):
                 #for eventype in event_types: 
                 for et in md.get_all_event_types():
                     eventype = et.event_type
-                    datapoints[eventype] = []
+                    datapoints[eventype] = {}
                     #et = md.get_event_type(eventype)
                     if summary:
                         summaries[eventype] = et.summaries
@@ -133,14 +134,15 @@ class EsmondUploader(object):
                     if eventype not in self.allowedEvents:                                                                                                  
                        continue
                     dpay = et.get_data()
+                    tup = ()
                     for dp in dpay.data:
                         tup = (dp.ts_epoch, dp.val)
-                        datapoints[eventype].append(tup)
+                        datapoints[eventype][dp.ts_epoch] = dp.val
                     # print debugging data
                     self.add2log("For event type %s, %d new data points"  %(eventype, len(datapoints[eventype])))
-                    if len(datapoints[eventype]) > 0 and not isinstance(datapoints[eventype][0][1], (dict,list)): 
+                    if len(datapoints[eventype]) > 0 and not isinstance(tup[1], (dict,list)): 
                         # picking the first one as the sample
-                        datapointSample[eventype] = datapoints[eventype][0]
+                        datapointSample[eventype] = tup[1]
                 self.add2log("Sample of the data being posted %s" % datapointSample)
             self.postData2(arguments, event_types, summaries, metadata_key, datapoints, summary, disp)
 
@@ -169,21 +171,22 @@ class EsmondUploader(object):
         et = EventTypeBulkPost(self.goc, username=self.username, api_key=self.key, metadata_key=new_meta.metadata_key)
         for event_type in event_types:
             # datapoint are tuples the first field is epoc the second the value                                                                          
-            for datapoint in datapoints[event_type]:
+            for epoch in datapoints[event_type]:
                 # packet-loss-rate is read as a float but should be uploaded as a dict with denominator and numerator                                     
                 if 'packet-loss-rate' in event_type:
-                    datapointIndex = datapoints[event_type].index(datapoint)
                     # Some extra proetection incase the number of datapoints in packet-loss-setn and packet-loss-rate does not match
                     packetcountsent = 300
                     packetcountlost = 0
-                    if datapointIndex < len(datapoints['packet-count-sent']):
-                        packetcountsent = datapoints['packet-count-sent'][datapointIndex][1]
-                    if datapointIndex < len(datapoints['packet-count-lost']):
-                        packetcountlost = datapoints['packet-count-lost'][datapointIndex][1]
-                    et.add_data_point(event_type, datapoint[0], {'denominator': packetcountsent, 'numerator': packetcountlost})
+                    if epoch in datapoints['packet-count-sent'].keys() and epoch in datapoints['packet-count-lost'].keys():
+                        #self.add2log("Something went wrong time epoch %s not found" % epoch) 
+                        packetcountsent = datapoints['packet-count-sent'][epoch]
+                        packetcountlost = datapoints['packet-count-lost'][epoch]
+                    else:
+                        self.add2log("Something went wrong time epoch %s not found" % epoch)
+                    et.add_data_point(event_type, epoch, {'denominator': packetcountsent, 'numerator': packetcountlost})
                     # For the rests the data points are uploaded as they are read                                                         
                 else:
-                    et.add_data_point(event_type, datapoint[0], datapoint[1])
+                    et.add_data_point(event_type, epoch, datapoints[event_type][epoch])
         if disp:
             self.add2log("Datapoints to upload:")
             self.add2log(et.json_payload())
