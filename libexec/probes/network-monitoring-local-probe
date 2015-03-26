@@ -58,15 +58,16 @@ class NetworkMonitoringLocalProbe(rsvprobe.RSVProbe):
     # Reads the url from the json url and returns the url nodes of the perfsonar nodes                         
     def parseJsonUrl(self, jsonurl):
         self.add_message("Obtaining nodes from mesh %s" % jsonurl)
-        req = urllib2.Request(jsonurl)
+        clean_url = urllib2.quote(jsonurl, safe="%/:=&?~#+!$,;'@()*[]")
+        req = urllib2.Request(clean_url)
         opener = urllib2.build_opener()
         f = opener.open(req)
         try:
             data = json.loads(f.read())
         except ValueError:
-            self.return_unknown("Invalid json at %s" % (jsonurl))
+            raise
         if 'tests' not in data:
-            self.return_unknown("Json Url format not as expected" % jsonurl)
+            raise Exception('jsoneror', 'json not correctly formatted')
         nodes = []
         for test in data['tests']:
             for key in test['members'].keys():
@@ -151,8 +152,15 @@ class NetworkMonitoringLocalProbe(rsvprobe.RSVProbe):
             self.parseSuperMesh(self.super_mesh)
         #Actual nodes are the nodes that should be on according to the last reading of the mesh_rul
         actualNodes = []
+        failures = False
         for mesh_url in self.meshlist:
-            actualNodes += self.parseJsonUrl(mesh_url)
+            try:
+                actualNodes += self.parseJsonUrl(mesh_url)
+            except Exception as inst:
+                failures = True
+                self.add_message("Invalid json at %s" % (mesh_url))
+        if failures:
+            self.return_unknown("Problem parsing a URL")
         #Enabled nodes is the list of currently enabled nodes
         self.add_message("Getting list of enabled nodes")
         enabledNodes = self.getListEnablednodes('org.osg.general.perfsonar-simple')
