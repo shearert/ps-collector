@@ -31,8 +31,8 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
         self.key = "fc077a6a133b22618172bbb50a1d3104a23b2050"
         # The goc_url is the url for where to upload the data
         self.goc_url = "http://osgnetds.grid.iu.edu"
-        self.start = 43200
-        self.sleep = 400
+        self.start = 900
+        self.sleep = 200
         self.debug = False
         self.maxstart = 43200
         self.summaries = False
@@ -83,8 +83,11 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
         return options, optlist, remainder
 
     def runCallerScript(self):
+        #print self.x509usercert
+        #print self.x509userkey
         #Runs the caller script for esmond and parses the result 
-        cmd = "source ./esmondCaller.sh %s %d %s %s %s %s %s %s %s" % ("http://" + self.host, int(self.start), self.username, self.key, self.goc_url, self.debug, self.soft_timeout, self.summaries, self.allowedEvents)
+        cmd = "source ./esmondCaller.sh %s %d %s %s %s %s %s %s %s %s %s" % ("http://" + self.host, int(self.start), 
+                                                                       self.username, self.key, self.goc_url, self.debug, self.soft_timeout, self.summaries, self.allowedEvents, self.x509usercert, self.x509userkey)
         ec, out = rsvprobe.run_command(cmd, workdir="/usr/libexec/rsv/probes/worker-scripts")
         return out
 

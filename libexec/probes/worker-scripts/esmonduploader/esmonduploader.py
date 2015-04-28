@@ -9,9 +9,10 @@ from fractions import Fraction
 
 from esmond.api.client.perfsonar.query import ApiFilters
 from esmond.api.client.perfsonar.query import ApiConnect
-# New module with the socks5 that inherics ApiConnect
-from SocksApiConnect import SocksApiConnect
-
+# New module with the socks5 that inherits ApiConnect
+#from SocksApiConnect import SocksApiConnect
+# New module with socks5 OR SSL connection that inherits ApiConnect
+from SocksSSLApiConnect import SocksSSLApiConnect
 from esmond.api.client.perfsonar.post import MetadataPost, EventTypePost, EventTypeBulkPost
 
 
@@ -34,6 +35,9 @@ parser.add_option('-g', '--goc', help='the goc address to upload the information
 parser.add_option('-t', '--timeout', help='the maxtimeout that the probe is allowed to run in secs', dest='timeout', default=1000, action='store')
 parser.add_option('-x', '--summaries', help='upload and read data summaries', dest='summary', default=True, action='store')
 parser.add_option('-a', '--allowedEvents', help='The allowedEvents', dest='allowedEvents', default=False, action='store')
+#Added support for SSL cert and key connection to the remote hosts
+parser.add_option('-c', '--cert', help='Path to the certificate', dest='cert', default='/etc/grid-security/rsv/rsvcert.pem', action='store')
+parser.add_option('-o', '--certkey', help='Path to the certificate key', dest='certkey', default='/etc/grid-security/rsv/rsvkey.pem', action='store')
 
 (opts, args) = parser.parse_args()
 
@@ -42,17 +46,17 @@ class EsmondUploader(object):
     def add2log(self, log):
         print strftime("%a, %d %b %Y %H:%M:%S", localtime()), str(log)
     
-    def __init__(self,verbose,start,end,connect,username='afitz',key='fc077a6a133b22618172bbb50a1d3104a23b2050', goc='http://osgnetds.grid.iu.edu', allowedEvents='packet-loss-rate'):
+    def __init__(self,verbose,start,end,connect,username=None,key=None, goc=None, allowedEvents='packet-loss-rate', cert=None, certkey=None):
         # Filter variables
         filters.verbose = verbose
-        filters.time_start = int(time.time() - 1.1*start)
+        filters.time_start = int(time.time() - 1.01*start)
         #Setting the end time is not needed confirmed by Andy, if not set is the same as setting it to now
         #filters.time_end = time.time()
         filterDates = (strftime("%a, %d %b %Y %H:%M:%S ", time.gmtime(filters.time_start)), strftime("%a, %d %b %Y %H:%M:%S", time.gmtime(filters.time_end)))
         self.add2log("Data interval is from %s, to %s " %filterDates)
         # gfiltesrs and in general g* means connecting to the cassandra db at the central place ie goc
         gfilters.verbose = False        
-        gfilters.time_start = time.time() - 5*start
+        gfilters.time_start = time.time() - 2*start
         gfilters.time_end = time.time()
         gfilters.input_source = connect
 
@@ -61,9 +65,11 @@ class EsmondUploader(object):
         self.username = username
         self.key = key
         self.goc = goc
-        self.conn = SocksApiConnect(self.connect, filters)
+        self.conn = SocksSSLApiConnect(self.connect, filters)
         self.gconn = ApiConnect(self.goc, gfilters)
-                
+        self.cert = cert
+        self.certkey = certkey
+
         # List to store the old metadata to be sure the same metadata is not upload twice
         self.old_list = []
         # Conver the allowedEvents into a list
@@ -77,6 +83,18 @@ class EsmondUploader(object):
             if "org_metadata_key" in gmd._data:
                 self.old_list.append(gmd._data["org_metadata_key"])
    
+    def getMetaDataConnection(self):
+        try:
+            metadata = self.conn.get_metadata()
+            return metadata
+        except Exception as e:
+            self.add2log("Unable to connect to %s, exception was %s, trying SSL" % (uri, e))
+            try:
+                metadata = conn.get_metadata(cert=self.cert, key=self.cert-key)
+                return metadata
+            except Exception as e:
+                self.add2log("Unable to connect to %s, exception was %s, " % (uri, e))
+
     # Get Data
     def getData(self, disp=False, summary=True):
         #self.getGoc(disp)
@@ -85,7 +103,8 @@ class EsmondUploader(object):
             self.add2log("Reading Summaries")
         else:
             self.add2log("Omiting Sumaries")
-        for md in self.conn.get_metadata():
+        metadata = self.getMetaDataConnection()
+        for md in metadata:
             # Check for repeat data
             if md.metadata_key in self.old_list:
                 continue

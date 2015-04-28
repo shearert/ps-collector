@@ -7,7 +7,10 @@ import signal
 import os
 
 ### File that would call EsmondUploader() with specified parameters to get and post the data ###
-caller = EsmondUploader(verbose=False,start=int(opts.start),end=int(opts.end),connect=opts.url, username=opts.username, key=opts.key, goc=opts.goc, allowedEvents=opts.allowedEvents)
+caller = EsmondUploader(verbose=False,start=int(opts.start),end=int(opts.end),
+                        connect=opts.url, username=opts.username, key=opts.key, 
+                        goc=opts.goc, allowedEvents=opts.allowedEvents,
+                        cert=opts.cert, certkey=opts.certkey)
 
 def str2bool(word):
   return word.lower() in ("true")
