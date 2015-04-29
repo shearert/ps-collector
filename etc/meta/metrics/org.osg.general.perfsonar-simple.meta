@@ -3,8 +3,7 @@ default-cron-interval = */10 * * * *
 execute = local
 service-type = Perfsonar-Monitor
 output-format = brief
-enable-by-default = true
+enable-by-default = False
 description = Uploads the information to myosg of a perfsonar ndoe
-need-proxy = false
-
+need-proxy = True
 [org.osg.general.perfsonar-simple env]
