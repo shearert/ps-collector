@@ -117,8 +117,8 @@ class EsmondUploader(object):
                     "destination": md.destination,
                     "tool_name": md.tool_name,
                     "measurement_agent": md.measurement_agent,
-                    "input_source": self.connect,
-                    "input_destination": self.goc
+                    "input_source": md.input_source,
+                    "input_destination": md.input_destination
                 }
                 if not md.time_duration is None:
                     arguments["time_duration"] = md.time_duration
