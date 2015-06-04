@@ -192,16 +192,19 @@ class EsmondUploader(object):
             # datapoint are tuples the first field is epoc the second the value                                                                          
             for epoch in datapoints[event_type]:
                 # packet-loss-rate is read as a float but should be uploaded as a dict with denominator and numerator                                     
-                if 'packet-loss-rate' in event_type:
+                if 'packet-loss-rate' == event_type:
                     # Some extra proetection incase the number of datapoints in packet-loss-setn and packet-loss-rate does not match
                     packetcountsent = 300
                     packetcountlost = 0
-                    if epoch in datapoints['packet-count-sent'].keys() and epoch in datapoints['packet-count-lost'].keys():
-                        #self.add2log("Something went wrong time epoch %s not found" % epoch) 
+                    if epoch in datapoints['packet-count-sent'].keys():
+                        packetcountsent = datapoints['packet-count-sent'][epoch]
+                    else:
+                        self.add2log("Something went wrong time epoch %s not found for packet-count-sent" % epoch)
+                    if epoch in datapoints['packet-count-lost'].keys():
                         packetcountsent = datapoints['packet-count-sent'][epoch]
                         packetcountlost = datapoints['packet-count-lost'][epoch]
                     else:
-                        self.add2log("Something went wrong time epoch %s not found" % epoch)
+                        self.add2log("Something went wrong time epoch %s not found for packet-count-lost" % epoch)
                     et.add_data_point(event_type, epoch, {'denominator': packetcountsent, 'numerator': packetcountlost})
                     # For the rests the data points are uploaded as they are read                                                         
                 else:
