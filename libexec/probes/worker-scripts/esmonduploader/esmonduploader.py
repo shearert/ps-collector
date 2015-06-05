@@ -49,11 +49,12 @@ class EsmondUploader(object):
     def __init__(self,verbose,start,end,connect,username=None,key=None, goc=None, allowedEvents='packet-loss-rate', cert=None, certkey=None):
         # Filter variables
         filters.verbose = verbose
-        filters.time_start = int(time.time() - 1.01*start)
-        #Setting the end time is not needed confirmed by Andy, if not set is the same as setting it to now
-        #filters.time_end = time.time()
+        filters.time_end = time.time()
+#        filters.time_start = int(filters.time_end - 1.05*start)
+        filters.time_start = int(filters.time_end - start -1)
         filterDates = (strftime("%a, %d %b %Y %H:%M:%S ", time.gmtime(filters.time_start)), strftime("%a, %d %b %Y %H:%M:%S", time.gmtime(filters.time_end)))
         self.add2log("Data interval is from %s, to %s " %filterDates)
+        self.add2log("Data interval is from %s, to %s " % (filters.time_start, filters.time_end))
         # gfiltesrs and in general g* means connecting to the cassandra db at the central place ie goc
         gfilters.verbose = False        
         gfilters.time_start = time.time() - 2*start
@@ -189,25 +190,25 @@ class EsmondUploader(object):
         self.add2log("posting NEW METADATA/DATA %s" % new_meta.metadata_key)
         et = EventTypeBulkPost(self.goc, username=self.username, api_key=self.key, metadata_key=new_meta.metadata_key)
         for event_type in event_types:
-            # datapoint are tuples the first field is epoc the second the value                                                                          
             for epoch in datapoints[event_type]:
                 # packet-loss-rate is read as a float but should be uploaded as a dict with denominator and numerator                                     
                 if 'packet-loss-rate' == event_type:
-                    # Some extra proetection incase the number of datapoints in packet-loss-setn and packet-loss-rate does not match
+                    # Some extra protection incase the number of datapoints in packet-loss-setn and packet-loss-rate does not match
                     packetcountsent = 300
                     packetcountlost = 0
                     if epoch in datapoints['packet-count-sent'].keys():
                         packetcountsent = datapoints['packet-count-sent'][epoch]
                     else:
                         self.add2log("Something went wrong time epoch %s not found for packet-count-sent" % epoch)
+                        raise Exception("Something went wrong time epoch %s not found for packet-count-sent" % epoch)
                     if epoch in datapoints['packet-count-lost'].keys():
-                        packetcountsent = datapoints['packet-count-sent'][epoch]
                         packetcountlost = datapoints['packet-count-lost'][epoch]
                     else:
                         self.add2log("Something went wrong time epoch %s not found for packet-count-lost" % epoch)
                     et.add_data_point(event_type, epoch, {'denominator': packetcountsent, 'numerator': packetcountlost})
                     # For the rests the data points are uploaded as they are read                                                         
                 else:
+                    # datapoint are tuples the first field is epoc the second the value  
                     et.add_data_point(event_type, epoch, datapoints[event_type][epoch])
         if disp:
             self.add2log("Datapoints to upload:")
