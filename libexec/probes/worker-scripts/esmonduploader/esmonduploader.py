@@ -51,7 +51,7 @@ class EsmondUploader(object):
         filters.verbose = verbose
         filters.time_end = time.time()
 #        filters.time_start = int(filters.time_end - 1.05*start)
-        filters.time_start = int(filters.time_end - start -1)
+        filters.time_start = int(filters.time_end - start - 1)
         filterDates = (strftime("%a, %d %b %Y %H:%M:%S ", time.gmtime(filters.time_start)), strftime("%a, %d %b %Y %H:%M:%S", time.gmtime(filters.time_end)))
         self.add2log("Data interval is from %s, to %s " %filterDates)
         self.add2log("Data interval is from %s, to %s " % (filters.time_start, filters.time_end))
@@ -205,6 +205,7 @@ class EsmondUploader(object):
                         packetcountlost = datapoints['packet-count-lost'][epoch]
                     else:
                         self.add2log("Something went wrong time epoch %s not found for packet-count-lost" % epoch)
+                        raise Exception("Something went wrong time epoch %s not found for packet-count-lost" % epoch)
                     et.add_data_point(event_type, epoch, {'denominator': packetcountsent, 'numerator': packetcountlost})
                     # For the rests the data points are uploaded as they are read                                                         
                 else:
