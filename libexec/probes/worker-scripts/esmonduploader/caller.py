@@ -16,11 +16,10 @@ def str2bool(word):
   return word.lower() in ("true")
 
 def get_post():
-    caller.add2log("Getting data..and posting data")
     try:
         caller.getData(str2bool(opts.disp), str2bool(opts.summary))
     except Exception as err:
-        print "ERROR:! Uunsuccessful! Exception: \"%s\" of type: \"%s\" was thrown! Quitting out." % (err,type(err))
+        print "ERROR:! Unsuccessful! Exception: \"%s\" of type: \"%s\" was thrown! Quitting out." % (err,type(err))
         sys.exit(1)
     else:
         caller.add2log("Finished getting and posting data succesfully!")
