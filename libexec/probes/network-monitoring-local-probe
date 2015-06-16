@@ -6,6 +6,7 @@ import subprocess
 import sys
 import urllib2
 import rsvprobe
+import socket
 try:#No json on python2.4 using simplejson for now
     import json
 except ImportError:
@@ -41,6 +42,22 @@ class NetworkMonitoringLocalProbe(rsvprobe.RSVProbe):
         self.addopt("", "super_mesh=", "--super_mesh# url of the goc mesh which has some others (ex. --super_mesh http://myosg.grid.iu.edu/pfmesh/all?new")
         self.meshlist = []
         self.super_mesh = ""
+        self.nodesIP = []
+
+    # Returns a list of ip addres that the hostname is associated with ipv4/ipv6
+    def hostnameToIP(self, hostname):
+        try:
+            addrTup = socket.getaddrinfo(hostname, 80, 0, 0, socket.IPPROTO_TCP)
+        except socket.gaierror:
+            self.add_message("Host %s ip not found, ignoring"%hostname)
+            return []
+        #addr = socket.gethostbyname(hostname)
+        address = []
+        for tup in addrTup:
+            if len(tup) == 5:
+                ip = tup[4][0]
+                address.append(ip)
+        return address
 
     def parseSuperMesh(self, super_mesh):
         self.add_message("Parsing super mesh %s" % super_mesh)
@@ -73,7 +90,15 @@ class NetworkMonitoringLocalProbe(rsvprobe.RSVProbe):
             for key in test['members'].keys():
                 if 'member' in key:
                     for node in test['members'][key]:
-                        nodes.append(node.encode('utf-8'))
+                        hostname = node.encode('utf-8')
+                        ips = self.hostnameToIP(hostname)
+                        # Check the ips are not already in nodesIP
+                        for ip in ips:
+                            if not ip in self.nodesIP:
+                                #Each time an ip is not found in the list 
+                                self.nodesIP.append(ip)
+                                if not hostname in nodes:
+                                    nodes.append(hostname)
         return nodes
         
     def parseopt(self):
@@ -156,9 +181,12 @@ class NetworkMonitoringLocalProbe(rsvprobe.RSVProbe):
         for mesh_url in self.meshlist:
             try:
                 actualNodes += self.parseJsonUrl(mesh_url)
+            except AttributeError as inst:
+                self.add_message(inst)
             except Exception as inst:
                 failures = True
                 self.add_message("Invalid json at %s" % (mesh_url))
+                #self.add_message(inst.strerror)
         if failures:
             self.return_unknown("Problem parsing a URL")
         #Enabled nodes is the list of currently enabled nodes
