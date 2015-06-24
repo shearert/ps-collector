@@ -1,6 +1,7 @@
 import os
 import time
 import inspect
+import json
 from time import strftime
 from time import localtime
 
@@ -10,6 +11,9 @@ from esmond.api.client.perfsonar.query import ApiConnect
 # New module with socks5 OR SSL connection that inherits ApiConnect
 from SocksSSLApiConnect import SocksSSLApiConnect
 from esmond.api.client.perfsonar.post import MetadataPost, EventTypePost, EventTypeBulkPost
+
+from messaging.message import Message
+from messaging.queue.dqs import DQS
 
 
 # Set filter object
@@ -34,7 +38,8 @@ parser.add_option('-a', '--allowedEvents', help='The allowedEvents', dest='allow
 #Added support for SSL cert and key connection to the remote hosts
 parser.add_option('-c', '--cert', help='Path to the certificate', dest='cert', default='/etc/grid-security/rsv/rsvcert.pem', action='store')
 parser.add_option('-o', '--certkey', help='Path to the certificate key', dest='certkey', default='/etc/grid-security/rsv/rsvkey.pem', action='store')
-
+# Add support for message queue
+parser.add_option('-q', '--queue', help='Directory queue (path)', default=None, dest='dq', action='store')
 (opts, args) = parser.parse_args()
 
 class EsmondUploader(object):
@@ -42,7 +47,7 @@ class EsmondUploader(object):
     def add2log(self, log):
         print strftime("%a, %d %b %Y %H:%M:%S", localtime()), str(log)
     
-    def __init__(self,verbose,start,end,connect,username=None,key=None, goc=None, allowedEvents='packet-loss-rate', cert=None, certkey=None):
+    def __init__(self,verbose,start,end,connect,username=None,key=None, goc=None, allowedEvents='packet-loss-rate', cert=None, certkey=None, dq=None):
         # Filter variables
         filters.verbose = verbose
         filters.time_end = time.time()
@@ -67,7 +72,15 @@ class EsmondUploader(object):
 
         # Convert the allowedEvents into a list
         self.allowedEvents = allowedEvents.split(',')
-
+        
+        #Code to allow publishing data to the mq
+        self.mq = None
+        self.dq = dq
+        if dq != None:
+            try:
+                self.mq = DQS(path=self.dq)
+            except Exception as e:
+                self.add2log("Unable to create dirq %s, exception was %s, " % (self.dq, e))
     
     #Auxiliary function to detect data already added to the central data store
     # for a single metadata_key.
@@ -87,6 +100,26 @@ class EsmondUploader(object):
                      for dp in dpay.data:
                          datapoints[metadata_key][eventype][dp.ts_epoch] = dp.val
         return datapoints
+    
+    # Publish message to Mq
+    def publishToMq(self, arguments, event_types, datapoints):
+        for event in event_types:
+            # no datapoints
+            if not datapoints[event]:
+                continue
+            # compose msg
+            msg_head = { 'input-source' : arguments['input_source'],
+                        'input-destination' : arguments['input_destination'],
+                        'esmond-timestamp' : "%s" % time.time(),
+                        'destination' : '/topic/perfsonar.' + event }
+            msg_body = json.dumps({ 'meta': arguments, 'datapoints': datapoints[event] })
+            msg = Message(body=msg_body, header=msg_head)
+            # add to mq
+            try:
+                self.mq.add_message(msg)
+            except Exception as e:
+                self.add2log("Failed to add message to mq %s, exception was %s" % (self.dq, e))
+
                  
     # Expects an object of tipe SocksSSLApiConnect
     def getMetaDataConnection(self, conn):
@@ -208,6 +241,9 @@ class EsmondUploader(object):
                 #Add each summary type once and give the post object the array of windows
                 for summary_type in summary_window_map:
                     mp.add_summary_type(event_type, summary_type, summary_window_map[summary_type])
+        # Publish to MQ
+        if self.mq:
+           self.publishToMq(arguments, event_types, datapoints)
         # Added the old metadata key
         mp.add_freeform_key_value("org_metadata_key", metadata_key)
         new_meta = mp.post_metadata()
@@ -219,11 +255,13 @@ class EsmondUploader(object):
         for event_type in event_types:
             for epoch in datapoints[event_type]:
                 # packet-loss-rate is read as a float but should be uploaded as a dict with denominator and numerator                                     
-                if 'packet-loss-rate' == event_type:
+                if event_type in ['packet-loss-rate', 'packet-loss-rate-bidir']:
                     # Some extra protection incase the number of datapoints in packet-loss-setn and packet-loss-rate does not match
-                    packetcountsent = 300
+                    packetcountsent = 210
                     packetcountlost = 0
                     specialTypes = ['packet-count-sent', 'packet-count-lost']
+                    if event_type == 'packet-loss-rate-bidir':
+                        specialTypes = ['packet-count-sent', 'packet-count-lost-bidir']                    
                     for specialType in specialTypes:
                         if not epoch in datapoints[specialType].keys():
                             self.add2log("Something went wrong time epoch %s not found for %s fixing it" % (specialType, epoch))
@@ -239,7 +277,10 @@ class EsmondUploader(object):
                             datapoints[specialType][epoch] = value
                             et.add_data_point(specialType, epoch, value)
                     packetcountsent = datapoints['packet-count-sent'][epoch]
-                    packetcountlost = datapoints['packet-count-lost'][epoch]
+                    if event_type == 'packet-loss-rate-bidir':
+                        packetcountlost = datapoints['packet-count-lost-bidir'][epoch]
+                    else:
+                        packetcountlost = datapoints['packet-count-lost'][epoch]
                     et.add_data_point(event_type, epoch, {'denominator': packetcountsent, 'numerator': packetcountlost})
                     # For the rests the data points are uploaded as they are read                                                         
                 else:

@@ -10,7 +10,7 @@ import os
 caller = EsmondUploader(verbose=False,start=int(opts.start),end=int(opts.end),
                         connect=opts.url, username=opts.username, key=opts.key, 
                         goc=opts.goc, allowedEvents=opts.allowedEvents,
-                        cert=opts.cert, certkey=opts.certkey)
+                        cert=opts.cert, certkey=opts.certkey, dq=opts.dq)
 
 def str2bool(word):
   return word.lower() in ("true")

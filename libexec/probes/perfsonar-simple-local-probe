@@ -37,6 +37,7 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
         self.maxstart = 43200
         self.summaries = False
         self.allowedEvents = "packet-loss-rate, throughput, packet-trace, packet-retransmits, histogram-owdelay, packet-count-sent,packet-count-lost"
+        self.directoryqueue = None
         # Add the options so the parsing knows what to expect
         self.addopt("", "username=", "--username username the username for uploading data to the goc")
         self.addopt("", "key=", "--key key the key for uploading data to the goc")
@@ -48,6 +49,7 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
         self.addopt("", "summary=", "--summary True or False. Read and upload data summaries or not")
         self.addopt("", "maxstart=", "--maxstart the max number in seconds it will go in the past to retrieve information")
         self.addopt("", "allowedEvents=", "--allowedEvents a list with the allowed event types")
+        self.addopt("", 'directoryqueue=', "--directoryqueue a dir for stompctl")
 
     def parseopt(self):
         """parse options specific to network monitroing probe and return options, optlist and reminder to
@@ -73,6 +75,8 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
                 self.summaries = arg
             elif opt == '--maxstart':
                 self.maxstart = arg
+            elif opt == '--directoryqueue':
+                self.directoryqueue = arg
             elif opt =='--allowedEvents':
                 # Replacing white spaces with nothing
                 self.allowedEvents = arg.replace(" ", '')
@@ -83,8 +87,9 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
         return options, optlist, remainder
 
     def runCallerScript(self):
-        cmd = "source ./esmondCaller.sh %s %d %s %s %s %s %s %s %s %s %s" % ("http://" + self.host, int(self.start), 
-                                                                       self.username, self.key, self.goc_url, self.debug, self.soft_timeout, self.summaries, self.allowedEvents, self.x509proxy, self.x509proxy)
+        cmd = "source ./esmondCaller.sh %s %d %s %s %s %s %s %s %s %s %s %s" % ("http://" + self.host, int(self.start), 
+                                                                       self.username, self.key, self.goc_url, self.debug, self.soft_timeout, self.summaries, self.allowedEvents, self.x509proxy, self.x509proxy, self.directoryqueue)
+        #self.add_message("Command call %s" % cmd)
         ec, out = rsvprobe.run_command(cmd, workdir="/usr/libexec/rsv/probes/worker-scripts")
         return out
 
