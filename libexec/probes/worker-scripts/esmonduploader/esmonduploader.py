@@ -102,18 +102,28 @@ class EsmondUploader(object):
         return datapoints
     
     # Publish message to Mq
-    def publishToMq(self, arguments, event_types, datapoints):
+    def publishToMq(self, arguments, event_types, datapoints, summaries_data):
         for event in event_types:
-            # no datapoints
+            # filter events for mq (must be subset of the probe's filter)
+            if event not in ('path-mtu', 'histogram-owdelay','packet-loss-rate','histogram-ttl','throughput','packet-retransmits','packet-trace'):
+                continue
+            # skip events that have no datapoints 
             if not datapoints[event]:
                 continue
             # compose msg
             msg_head = { 'input-source' : arguments['input_source'],
                         'input-destination' : arguments['input_destination'],
-                        'esmond-timestamp' : "%s" % time.time(),
-                        'destination' : '/topic/perfsonar.' + event }
-            msg_body = json.dumps({ 'meta': arguments, 'datapoints': datapoints[event] })
-            msg = Message(body=msg_body, header=msg_head)
+                         'event-type' : event,
+                         'rsv-timestamp' : "%s" % time.time(),
+                         'summaries' : 0,
+                         'destination' : '/topic/perfsonar.' + event}
+            msg_body = { 'meta': arguments }
+            if summaries_data[event]:
+                msg_body['summaries'] = summaries_data[event]
+                msg_head['summaries'] = 1
+            if datapoints[event]:
+                msg_body['datapoints'] = datapoints[event]
+            msg = Message(body=json.dumps(msg_body), header=msg_head)
             # add to mq
             try:
                 self.mq.add_message(msg)
@@ -170,7 +180,8 @@ class EsmondUploader(object):
                 self.add2log("Posting args: ")
                 self.add2log(arguments)
             # Get Events and Data Payload
-            summaries = {} 
+            summaries = {}
+            summaries_data = {}
             # datapoints is a dict of lists
             # Each of its members are lists of datapoints of a given event_type
             datapoints = {}
@@ -188,6 +199,18 @@ class EsmondUploader(object):
                 # Skip reading data points for certain event types to improv efficiency  
                 if eventype not in self.allowedEvents:                                                                                                  
                     continue
+                # Read summary data 
+                summaries_data[eventype] = []
+                for summ in et.get_all_summaries():
+                    summ_data = summ.get_data()
+                    summ_dp = [ (dp.ts_epoch, dp.val) for dp in summ_data.data ]
+                    if not summ_dp:
+                        continue
+                    summaries_data[eventype].append({'event_type': eventype,
+                                                     'summary_type' : summ.summary_type,
+                                                     'summary_window' : summ.summary_window,
+                                                     'summary_data' : summ_dp })
+                # Read datapoints
                 dpay = et.get_data()
                 tup = ()
                 for dp in dpay.data:
@@ -202,7 +225,7 @@ class EsmondUploader(object):
                     # picking the first one as the sample
                     datapointSample[eventype] = tup[1]
             self.add2log("Sample of the data being posted %s" % datapointSample)
-            self.postData2(arguments, event_types, summaries, metadata_key, datapoints, summary, disp)
+            self.postData2(arguments, event_types, summaries, summaries_data, metadata_key, datapoints, summary, disp)
 
     
     # Experimental function to try to recover from missing packet-count-sent or packet-count-lost data
@@ -227,7 +250,7 @@ class EsmondUploader(object):
         return datapoints
                 
 
-    def postData2(self, arguments, event_types, summaries, metadata_key, datapoints, summary = True, disp=False):
+    def postData2(self, arguments, event_types, summaries, summaries_data, metadata_key, datapoints, summary = True, disp=False):
         mp = MetadataPost(self.goc, username=self.username, api_key=self.key, **arguments)
         for event_type in event_types:
             mp.add_event_type(event_type)
@@ -243,7 +266,7 @@ class EsmondUploader(object):
                     mp.add_summary_type(event_type, summary_type, summary_window_map[summary_type])
         # Publish to MQ
         if self.mq:
-           self.publishToMq(arguments, event_types, datapoints)
+           self.publishToMq(arguments, event_types, datapoints, summaries_data)
         # Added the old metadata key
         mp.add_freeform_key_value("org_metadata_key", metadata_key)
         new_meta = mp.post_metadata()

@@ -21,6 +21,10 @@ install:
 	install -d $(DESTDIR)/$(sysconfdir)/rsv/meta
 	cp -r etc/meta/metrics $(DESTDIR)/$(sysconfdir)/rsv/meta/
 	cp -r etc/metrics $(DESTDIR)/$(sysconfdir)/rsv/
+	# Install configuration files for message broker
+	cp -r etc/stompclt $(DESTDIR)/$(sysconfdir)/rsv/
+	# Install the message passing directory
+	install -d $(DESTDIR)/$(localstatedir)/run/rsv-perfsonar
 	#Install condor-cron configs
 	install -d $(DESTDIR)/$(sysconfdir)/condor-cron/config.d
 	cp -r etc/condor-cron/config.d $(DESTDIR)/$(sysconfdir)/condor-cron/
