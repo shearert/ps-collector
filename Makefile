@@ -22,7 +22,7 @@ install:
 	cp -r etc/meta/metrics $(DESTDIR)/$(sysconfdir)/rsv/meta/
 	cp -r etc/metrics $(DESTDIR)/$(sysconfdir)/rsv/
 	# Install configuration files for message broker
-	 install -d $(DESTDIR)/$(sysconfdir)/rsv/stompclt
+	install -d $(DESTDIR)/$(sysconfdir)/rsv/stompclt
 	cp -r etc/stompclt $(DESTDIR)/$(sysconfdir)/rsv/
 	# Install the message passing directory
 	install -d $(DESTDIR)/$(localstatedir)/run/rsv-perfsonar

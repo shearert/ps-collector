@@ -76,7 +76,7 @@ class EsmondUploader(object):
         #Code to allow publishing data to the mq
         self.mq = None
         self.dq = dq
-        if dq != None:
+        if self.dq != None and self.dq!='None':
             try:
                 self.mq = DQS(path=self.dq)
             except Exception as e:
