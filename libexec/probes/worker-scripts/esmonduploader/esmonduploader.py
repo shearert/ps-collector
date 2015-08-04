@@ -27,7 +27,7 @@ parser.add_option('-e', '--end', help='set end time for gathering data (default 
 parser.add_option('-l', '--loop', help='include this option for looping process', dest='loop', default=False, action='store_true')
 parser.add_option('-p', '--post',  help='begin get/post from specified url', dest='post', default=False, action='store_true')
 parser.add_option('-r', '--error', help='run get/post without error handling (for debugging)', dest='err', default=False, action='store_true')
-parser.add_option('-s', '--start', help='set start time for gathering data (default is -12 hours)', dest='start', default=-43200)
+parser.add_option('-s', '--start', help='set start time for gathering data (default is -12 hours)', dest='start', default=960)
 parser.add_option('-u', '--url', help='set url to gather data from (default is http://hcc-pki-ps02.unl.edu)', dest='url', default='http://hcc-pki-ps02.unl.edu')
 parser.add_option('-w', '--user', help='the username to upload the information to the GOC', dest='username', default='afitz', action='store')
 parser.add_option('-k', '--key', help='the key to upload the information to the goc', dest='key', default='fc077a6a133b22618172bbb50a1d3104a23b2050', action='store')
@@ -50,15 +50,19 @@ class EsmondUploader(object):
     def __init__(self,verbose,start,end,connect,username=None,key=None, goc=None, allowedEvents='packet-loss-rate', cert=None, certkey=None, dq=None):
         # Filter variables
         filters.verbose = verbose
-        filters.time_end = time.time()
-        filters.time_start = int(filters.time_end - start - 1)
+        # this are the filters that later will be used for the data
+        self.time_end = time.time()
+        self.time_start = int(self.time_end - start - 1)
+        # Filter for metadata
+        filters.time_start = int(self.time_end - 6*start - 1)
         # For logging pourposes
-        filterDates = (strftime("%a, %d %b %Y %H:%M:%S ", time.gmtime(filters.time_start)), strftime("%a, %d %b %Y %H:%M:%S", time.gmtime(filters.time_end)))
-        self.add2log("Data interval is from %s, to %s " %filterDates)
-        self.add2log("Data interval is from %s, to %s " % (filters.time_start, filters.time_end))
+        filterDates = (strftime("%a, %d %b %Y %H:%M:%S ", time.gmtime(self.time_start)), strftime("%a, %d %b %Y %H:%M:%S", time.gmtime(self.time_end)))
+        #filterDates = (strftime("%a, %d %b %Y %H:%M:%S ", time.gmtime(filters.time_start)))
+        self.add2log("Data interval is from %s to %s" %filterDates)
+        self.add2log("Metada interval is from %s to now" % (filters.time_start))
         # gfiltesrs and in general g* means connecting to the cassandra db at the central place ie goc
         gfilters.verbose = False        
-        gfilters.time_start = int(filters.time_end - 2*start)
+        gfilters.time_start = int(self.time_end - 2*start)
 
         # Username/Key/Location/Delay
         self.connect = connect
@@ -84,6 +88,7 @@ class EsmondUploader(object):
     
     #Auxiliary function to detect data already added to the central data store
     # for a single metadata_key.
+    # This function is too hard on the original server and should not be used
     def getExistingData(self):
         gmetadata = self.gconn.get_metadata()
         datapoints = {}
@@ -186,9 +191,10 @@ class EsmondUploader(object):
             # Each of its members are lists of datapoints of a given event_type
             datapoints = {}
             datapointSample = {}
-            # et = event type
-            #for eventype in event_types: 
             for et in md.get_all_event_types():
+                # Adding the time.end filter for the data since it is not used for the metadata
+                et.filters.time_start = self.time_start
+                et.filters.time_end = self.time_end
                 eventype = et.event_type
                 datapoints[eventype] = {}
                 #et = md.get_event_type(eventype)
@@ -214,9 +220,6 @@ class EsmondUploader(object):
                 dpay = et.get_data()
                 tup = ()
                 for dp in dpay.data:
-                    #Check for old data already in
-                    if metadata_key in oldDataPoints and eventype in oldDataPoints[metadata_key] and dp.ts_epoch in oldDataPoints[metadata_key][eventype]:
-                        continue
                     tup = (dp.ts_epoch, dp.val)
                     datapoints[eventype][dp.ts_epoch] = dp.val
                     # print debugging data

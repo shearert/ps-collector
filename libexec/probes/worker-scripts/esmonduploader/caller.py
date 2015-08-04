@@ -2,9 +2,14 @@ from time import sleep
 from time import strftime
 from time import localtime
 import sys
-from esmonduploader import *
 import signal
 import os
+
+try:
+  from esmonduploader import *
+except Exception as err:
+  print "ERROR:! Importing esmond libraries! Exception: \"%s\" of type: \"%s\" was thrown! Quitting out." % (err,type(err)) 
+  sys.exit(1)
 
 ### File that would call EsmondUploader() with specified parameters to get and post the data ###
 caller = EsmondUploader(verbose=False,start=int(opts.start),end=int(opts.end),
