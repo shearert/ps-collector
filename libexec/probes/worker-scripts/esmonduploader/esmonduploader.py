@@ -52,9 +52,11 @@ class EsmondUploader(object):
         filters.verbose = verbose
         # this are the filters that later will be used for the data
         self.time_end = time.time()
-        self.time_start = int(self.time_end - start - 1)
+        self.time_start = int(self.time_end - start)
         # Filter for metadata
-        filters.time_start = int(self.time_end - 6*start - 1)
+        filters.time_start = int(self.time_end - 3*start)
+        # Added time_end for bug that Andy found as sometime far in the future 24 hours
+        filters.time_end = int(self.time_end + 24*60*60)
         # For logging pourposes
         filterDates = (strftime("%a, %d %b %Y %H:%M:%S ", time.gmtime(self.time_start)), strftime("%a, %d %b %Y %H:%M:%S", time.gmtime(self.time_end)))
         #filterDates = (strftime("%a, %d %b %Y %H:%M:%S ", time.gmtime(filters.time_start)))
@@ -62,8 +64,9 @@ class EsmondUploader(object):
         self.add2log("Metada interval is from %s to now" % (filters.time_start))
         # gfiltesrs and in general g* means connecting to the cassandra db at the central place ie goc
         gfilters.verbose = False        
-        gfilters.time_start = int(self.time_end - 2*start)
-
+        gfilters.time_start = int(self.time_end - 5*start)
+        gfilters.time_end = self.time_end + 24*60*60
+        gfilters.input_source = connect
         # Username/Key/Location/Delay
         self.connect = connect
         self.username = username
@@ -228,7 +231,7 @@ class EsmondUploader(object):
                     # picking the first one as the sample
                     datapointSample[eventype] = tup[1]
             self.add2log("Sample of the data being posted %s" % datapointSample)
-            self.postData2(arguments, event_types, summaries, summaries_data, metadata_key, datapoints, summary, disp)
+            self.postData(arguments, event_types, summaries, summaries_data, metadata_key, datapoints, summary, disp)
 
     
     # Experimental function to try to recover from missing packet-count-sent or packet-count-lost data
@@ -237,6 +240,7 @@ class EsmondUploader(object):
         filtersEsp.verbose = True
         filtersEsp.metadata_key = metadata_key
         filtersEsp.time_start = timestamp - 30000
+        filtersEsp.time_end  = timestamp + 30000 
         conn = SocksSSLApiConnect(self.connect, filtersEsp)
         metadata = self.getMetaDataConnection(conn)
         datapoints = {}
@@ -253,7 +257,7 @@ class EsmondUploader(object):
         return datapoints
                 
 
-    def postData2(self, arguments, event_types, summaries, summaries_data, metadata_key, datapoints, summary = True, disp=False):
+    def postData(self, arguments, event_types, summaries, summaries_data, metadata_key, datapoints, summary = True, disp=False):
         mp = MetadataPost(self.goc, username=self.username, api_key=self.key, **arguments)
         for event_type in event_types:
             mp.add_event_type(event_type)
