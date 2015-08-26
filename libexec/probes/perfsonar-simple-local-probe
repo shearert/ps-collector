@@ -87,7 +87,7 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
         return options, optlist, remainder
 
     def runCallerScript(self):
-        cmd = "source ./esmondCaller.sh %s %d %s %s %s %s %s %s %s %s %s %s" % ("http://" + self.host, int(self.start), 
+        cmd = "source ./esmondCaller.sh %s %d %s %s %s %s %s %s %s %s %s %s" % (self.host, int(self.start), 
                                                                        self.username, self.key, self.goc_url, self.debug, self.soft_timeout, self.summaries, self.allowedEvents, self.x509proxy, self.x509proxy, self.directoryqueue)
         #self.add_message("Command call %s" % cmd)
         ec, out = rsvprobe.run_command(cmd, workdir="/usr/libexec/rsv/probes/worker-scripts")

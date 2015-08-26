@@ -6,12 +6,17 @@ from time import strftime
 from time import localtime
 
 from optparse import OptionParser
-from esmond.api.client.perfsonar.query import ApiFilters
-from esmond.api.client.perfsonar.query import ApiConnect
+
+# Using the esmond_client instead of the rpm
+from esmond_client.perfsonar.query import ApiFilters
+from esmond_client.perfsonar.query import ApiConnect
+from esmond_client.perfsonar.post import MetadataPost, EventTypePost, EventTypeBulkPost
+
+
 # New module with socks5 OR SSL connection that inherits ApiConnect
 from SocksSSLApiConnect import SocksSSLApiConnect
-from esmond.api.client.perfsonar.post import MetadataPost, EventTypePost, EventTypeBulkPost
 
+# Need to push to cern message queue
 from messaging.message import Message
 from messaging.queue.dqs import DQS
 
@@ -172,10 +177,13 @@ class EsmondUploader(object):
                     "tool_name": md.tool_name,
                     "measurement_agent": md.measurement_agent,
                     "input_source": md.input_source,
-                    "input_destination": md.input_destination
+                    "input_destination": md.input_destination,
+                    "tool_name": md.tool_name
             }
             if not md.time_duration is None:
                 arguments["time_duration"] = md.time_duration
+            if not md.ip_transport_protocol is None:
+                arguments["ip_transport_protocol"] = md.ip_transport_protocol
             # Assigning each metadata object property to class variables
             event_types = md.event_types
             metadata_key = md.metadata_key
