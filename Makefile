@@ -24,6 +24,8 @@ install:
 	# Install configuration files for message broker
 	install -d $(DESTDIR)/$(sysconfdir)/rsv/stompclt
 	cp -r etc/stompclt $(DESTDIR)/$(sysconfdir)/rsv/
+	# Install the /var/rsv directory
+	install -d $(DESTDIR)/$(localstatedir)/rsv
 	# Install the message passing directory
 	install -d $(DESTDIR)/$(localstatedir)/run/rsv-perfsonar
 	#Install condor-cron configs
