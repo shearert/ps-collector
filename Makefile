@@ -26,6 +26,7 @@ install:
 	cp -r etc/stompclt $(DESTDIR)/$(sysconfdir)/rsv/
 	# Install the /var/rsv directory
 	install -d $(DESTDIR)/$(localstatedir)/rsv
+	install -d $(DESTDIR)/$(localstatedir)/rsv/localenv
 	# Install the message passing directory
 	install -d $(DESTDIR)/$(localstatedir)/run/rsv-perfsonar
 	#Install condor-cron configs
