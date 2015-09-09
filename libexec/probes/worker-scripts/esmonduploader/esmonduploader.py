@@ -2,16 +2,16 @@ import os
 import time
 import inspect
 import json
+import warnings
 from time import strftime
 from time import localtime
-
 from optparse import OptionParser
 
 # Using the esmond_client instead of the rpm
 from esmond_client.perfsonar.query import ApiFilters
 from esmond_client.perfsonar.query import ApiConnect
 from esmond_client.perfsonar.post import MetadataPost, EventTypePost, EventTypeBulkPost
-
+from esmond_client.perfsonar.post import EventTypeBulkPostWarning, EventTypePostWarning
 
 # New module with socks5 OR SSL connection that inherits ApiConnect
 from SocksSSLApiConnect import SocksSSLApiConnect
@@ -93,26 +93,6 @@ class EsmondUploader(object):
                 self.mq = DQS(path=self.dq)
             except Exception as e:
                 self.add2log("Unable to create dirq %s, exception was %s, " % (self.dq, e))
-    
-    #Auxiliary function to detect data already added to the central data store
-    # for a single metadata_key.
-    # This function is too hard on the original server and should not be used
-    def getExistingData(self):
-        gmetadata = self.gconn.get_metadata()
-        datapoints = {}
-        for gmd in self.gconn.get_metadata():
-             if "org_metadata_key" in gmd._data:
-                 metadata_key = gmd._data["org_metadata_key"]
-                 datapoints[metadata_key] = {}
-                 for et in gmd.get_all_event_types():
-                     eventype = et.event_type
-                     datapoints[metadata_key][eventype] = {}
-                     if eventype not in self.allowedEvents:
-                             continue
-                     dpay = et.get_data()
-                     for dp in dpay.data:
-                         datapoints[metadata_key][eventype][dp.ts_epoch] = dp.val
-        return datapoints
     
     # Publish message to Mq
     def publishToMq(self, arguments, event_types, datapoints, summaries_data):
@@ -241,6 +221,22 @@ class EsmondUploader(object):
             self.add2log("Sample of the data being posted %s" % datapointSample)
             self.postData(arguments, event_types, summaries, summaries_data, metadata_key, datapoints, summary, disp)
 
+    def postDataSlow(self, json_payload, new_metadata_key, original_datapoints, disp=False):
+        data = json_payload["data"]
+        for data_point in data:
+            epoch = data_point['ts']
+            datapoints = data_point["val"]
+            for datavalue in datapoints:
+                new_event_type = datavalue['event-type']
+                value = datavalue['val']
+                et = EventTypeBulkPost(self.goc, username=self.username, api_key=self.key, metadata_key=new_metadata_key)
+                et.add_data_point(new_event_type, epoch, value)
+                try:
+                    et.post_data()
+                except Exception as err:
+                    self.add2log("Exception adding new point: %s" % err)
+                    self.add2log(et.json_payload())
+                    continue
     
     # Experimental function to try to recover from missing packet-count-sent or packet-count-lost data
     def getMissingData(self, timestamp, metadata_key, event_type, disp=False):
@@ -311,6 +307,10 @@ class EsmondUploader(object):
                                 # Since we are trying to double check for the first time sleep some time before going all berserker again
                                 time.sleep(5)
                                 datapoints_added = self.getMissingData(epoch, metadata_key, specialType)
+                            try:
+                                value = datapoints_added[specialType][epoch]
+                            except Exception as err:
+                                datapoints_added[specialType][epoch] = 0
                             value = datapoints_added[specialType][epoch]
                             datapoints[specialType][epoch] = value
                             et.add_data_point(specialType, epoch, value)
@@ -327,8 +327,11 @@ class EsmondUploader(object):
         if disp:
             self.add2log("Datapoints to upload:")
             self.add2log(et.json_payload())
-        et.post_data()
-        self.add2log("posting NEW METADATA/DATA %s" % new_meta.metadata_key)      
-
-
-
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter('error',  EventTypePostWarning)
+            try:
+                et.post_data()
+            # Some EventTypePostWarning went wrong:
+            except Exception as err:
+                self.postDataSlow(json.loads(et.json_payload()), new_meta.metadata_key, datapoints, disp)
+        self.add2log("posting NEW METADATA/DATA %s" % new_meta.metadata_key)
