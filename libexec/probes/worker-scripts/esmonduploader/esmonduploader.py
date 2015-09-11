@@ -182,9 +182,21 @@ class EsmondUploader(object):
             # Each of its members are lists of datapoints of a given event_type
             datapoints = {}
             datapointSample = {}
+            #load next start times
+            self.time_starts = {}
+            try:
+                f = open('/tmp/rsv-perfsonar/'+md.metadata_key, 'r')
+                self.time_starts = json.loads(f.read())
+                f.close()
+            except IOError:
+                self.add2log("first time for %s" % (md.metadata_key))
             for et in md.get_all_event_types():
                 # Adding the time.end filter for the data since it is not used for the metadata
+                #use previously recorded end time if available
                 et.filters.time_start = self.time_start
+                if et.event_type in self.time_starts.keys():
+                     et.filters.time_start = self.time_starts[et.event_type]
+                     self.add2log("loaded previous time_start %s" % self.time_start)
                 et.filters.time_end = self.time_end
                 eventype = et.event_type
                 datapoints[eventype] = {}
@@ -299,21 +311,16 @@ class EsmondUploader(object):
                     for specialType in specialTypes:
                         if not epoch in datapoints[specialType].keys():
                             self.add2log("Something went wrong time epoch %s not found for %s fixing it" % (specialType, epoch))
+                            time.sleep(5)
                             datapoints_added = self.getMissingData(epoch, metadata_key, specialType)
                             # Try to get the data once more because we know it is there
-                            try:
-                                value = datapoints_added[specialType][epoch]
-                            except Exception as err:
-                                # Since we are trying to double check for the first time sleep some time before going all berserker again
-                                time.sleep(5)
-                                datapoints_added = self.getMissingData(epoch, metadata_key, specialType)
                             try:
                                 value = datapoints_added[specialType][epoch]
                             except Exception as err:
                                 datapoints_added[specialType][epoch] = 0
                             value = datapoints_added[specialType][epoch]
                             datapoints[specialType][epoch] = value
-                            et.add_data_point(specialType, epoch, value)
+                            #et.add_data_point(specialType, epoch, value)
                     packetcountsent = datapoints['packet-count-sent'][epoch]
                     if event_type == 'packet-loss-rate-bidir':
                         packetcountlost = datapoints['packet-count-lost-bidir'][epoch]
@@ -334,4 +341,11 @@ class EsmondUploader(object):
             # Some EventTypePostWarning went wrong:
             except Exception as err:
                 self.postDataSlow(json.loads(et.json_payload()), new_meta.metadata_key, datapoints, disp)
+            for event_type in event_types:
+                if len(datapoints[event_type].keys()) > 0:
+                    next_time_start = max(datapoints[event_type].keys())+1
+                    self.time_starts[event_type] = int(next_time_start)
+                    f = open('/tmp/rsv-perfsonar/'+metadata_key, 'w')
+                    f.write(json.dumps(self.time_starts))
+                    f.close()
         self.add2log("posting NEW METADATA/DATA %s" % new_meta.metadata_key)
