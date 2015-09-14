@@ -135,12 +135,15 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
        self.parseopt()
        #In /var/log/rsv/metrics/ each probe creates a dir with the last time it ran succesfully if it is not yet there
        basedir = "/var/log/rsv/metrics/"
-       directoryFile = self.createDir(basedir +self.host)
+       directoryFile = self.createDir(basedir + self.host)
        timeFile = directoryFile + '/timeFile.out'
        # computeStartTime basically reads the file assumes the date there is the time_end in the filter probe of the last succesfull probe
        # and computes how long in the past it has to look back, basically now - time_end of last sucesfull run.
        self.computeStartTime(timeFile)
        startTime = localtime()
+       # Some dictionaries where last ran actually happen will be created on the /tmp
+       tmpbasedir = "/tmp/rsv-perfsonar/"
+       tmpdir = self.createDir(tmpbasedir + self.host)
        # Calling the caller script and parsing it is output
        out = self.runCallerScript()
        self.add_message(out)

@@ -77,11 +77,11 @@ class EsmondUploader(object):
         self.username = username
         self.key = key
         self.goc = goc
-        self.conn = SocksSSLApiConnect(self.connect, filters)
+        self.conn = SocksSSLApiConnect("http://"+self.connect, filters)
         self.gconn = ApiConnect(self.goc, gfilters)
         self.cert = cert
         self.certkey = certkey
-
+        self.tmpDir = '/tmp/rsv-perfsonar/' + self.connect +'/'
         # Convert the allowedEvents into a list
         self.allowedEvents = allowedEvents.split(',')
         
@@ -185,7 +185,7 @@ class EsmondUploader(object):
             #load next start times
             self.time_starts = {}
             try:
-                f = open('/tmp/rsv-perfsonar/'+md.metadata_key, 'r')
+                f = open(self.tmpDir+md.metadata_key, 'r')
                 self.time_starts = json.loads(f.read())
                 f.close()
             except IOError:
@@ -257,7 +257,7 @@ class EsmondUploader(object):
         filtersEsp.metadata_key = metadata_key
         filtersEsp.time_start = timestamp - 30000
         filtersEsp.time_end  = timestamp + 30000 
-        conn = SocksSSLApiConnect(self.connect, filtersEsp)
+        conn = SocksSSLApiConnect("http://"+self.connect, filtersEsp)
         metadata = self.getMetaDataConnection(conn)
         datapoints = {}
         datapoints[event_type] = {}
@@ -345,7 +345,7 @@ class EsmondUploader(object):
                 if len(datapoints[event_type].keys()) > 0:
                     next_time_start = max(datapoints[event_type].keys())+1
                     self.time_starts[event_type] = int(next_time_start)
-                    f = open('/tmp/rsv-perfsonar/'+metadata_key, 'w')
+                    f = open(self.tmpDir + metadata_key, 'w')
                     f.write(json.dumps(self.time_starts))
                     f.close()
         self.add2log("posting NEW METADATA/DATA %s" % new_meta.metadata_key)
