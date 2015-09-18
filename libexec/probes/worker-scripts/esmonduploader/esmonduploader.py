@@ -45,6 +45,7 @@ parser.add_option('-c', '--cert', help='Path to the certificate', dest='cert', d
 parser.add_option('-o', '--certkey', help='Path to the certificate key', dest='certkey', default='/etc/grid-security/rsv/rsvkey.pem', action='store')
 # Add support for message queue
 parser.add_option('-q', '--queue', help='Directory queue (path)', default=None, dest='dq', action='store')
+parser.add_option('-m','--tmp', help='Tmp directory to use for timestamps', default='/tmp/rsv-perfsonar/', dest='tmp', action='store')
 (opts, args) = parser.parse_args()
 
 class EsmondUploader(object):
@@ -52,7 +53,7 @@ class EsmondUploader(object):
     def add2log(self, log):
         print strftime("%a, %d %b %Y %H:%M:%S", localtime()), str(log)
     
-    def __init__(self,verbose,start,end,connect,username=None,key=None, goc=None, allowedEvents='packet-loss-rate', cert=None, certkey=None, dq=None):
+    def __init__(self,verbose,start,end,connect,username=None,key=None, goc=None, allowedEvents='packet-loss-rate', cert=None, certkey=None, dq=None, tmp='/tmp/rsv-perfsonar/'):
         # Filter variables
         filters.verbose = verbose
         # this are the filters that later will be used for the data
@@ -81,7 +82,7 @@ class EsmondUploader(object):
         self.gconn = ApiConnect(self.goc, gfilters)
         self.cert = cert
         self.certkey = certkey
-        self.tmpDir = '/tmp/rsv-perfsonar/' + self.connect +'/'
+        self.tmpDir = tmp + self.connect +'/'
         # Convert the allowedEvents into a list
         self.allowedEvents = allowedEvents.split(',')
         
