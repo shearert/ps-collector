@@ -24,6 +24,9 @@ install:
 	# Install configuration files for message broker
 	install -d $(DESTDIR)/$(sysconfdir)/rsv/stompclt
 	cp -r etc/stompclt $(DESTDIR)/$(sysconfdir)/rsv/
+	# Install the simplevisor init script
+	install -d $(DESTDIR)/$(initrddir)
+	install -m 0755 init/simplevisor.init $(DESTDIR)/$(initrddir)/simplevisor
 	# Install the /var/rsv directory
 	install -d $(DESTDIR)/$(localstatedir)/rsv
 	install -d $(DESTDIR)/$(localstatedir)/rsv/localenv
