@@ -150,10 +150,13 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
        tmpdir = self.createDir(tmpbasedir + self.host)
        # Calling the caller script and parsing it is output
        out = self.runCallerScript()
-       self.add_message(out)
+       reverOut = out.split('\n')
+       reverOut.reverse()
+       #reverOut = reverOut.reverse()
+       for line in reverOut:
+           self.add_message(line)
        if 'ERROR' in out:
             self.return_critical("Failed running the caller")
-       # Write the timestamp if there is a warning or ok. Even if it is a timeout warning chances are increasing starttime won't do much
        self.WriteNewTimestamp(timeFile, startTime)
        if 'WARNING' in out:
            self.return_warning('WARNING: timeout ')

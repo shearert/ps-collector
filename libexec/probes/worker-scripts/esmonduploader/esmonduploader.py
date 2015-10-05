@@ -55,14 +55,15 @@ class EsmondUploader(object):
     
     def __init__(self,verbose,start,end,connect,username=None,key=None, goc=None, allowedEvents='packet-loss-rate', cert=None, certkey=None, dq=None, tmp='/tmp/rsv-perfsonar/'):
         # Filter variables
+        #filters.verbose = verbose
         filters.verbose = verbose
         # this are the filters that later will be used for the data
-        self.time_end = time.time()
+        self.time_end = int(time.time())
         self.time_start = int(self.time_end - start)
         # Filter for metadata
         filters.time_start = int(self.time_end - 3*start)
         # Added time_end for bug that Andy found as sometime far in the future 24 hours
-        filters.time_end = int(self.time_end + 24*60*60)
+        filters.time_end = self.time_end + 24*60*60
         # For logging pourposes
         filterDates = (strftime("%a, %d %b %Y %H:%M:%S ", time.gmtime(self.time_start)), strftime("%a, %d %b %Y %H:%M:%S", time.gmtime(self.time_end)))
         #filterDates = (strftime("%a, %d %b %Y %H:%M:%S ", time.gmtime(filters.time_start)))
@@ -71,7 +72,7 @@ class EsmondUploader(object):
         # gfiltesrs and in general g* means connecting to the cassandra db at the central place ie goc
         gfilters.verbose = False        
         gfilters.time_start = int(self.time_end - 5*start)
-        gfilters.time_end = self.time_end + 24*60*60
+        gfilters.time_end = self.time_end
         gfilters.input_source = connect
         # Username/Key/Location/Delay
         self.connect = connect
@@ -97,7 +98,7 @@ class EsmondUploader(object):
     
     # Publish message to Mq
     def publishToMq(self, arguments, event_types, datapoints, summaries_data):
-        for event in event_types:
+        for event in datapoints.keys():
             # filter events for mq (must be subset of the probe's filter)
             if event not in ('path-mtu', 'histogram-owdelay','packet-loss-rate','histogram-ttl','throughput','packet-retransmits','packet-trace'):
                 continue
@@ -191,14 +192,21 @@ class EsmondUploader(object):
                 f.close()
             except IOError:
                 self.add2log("first time for %s" % (md.metadata_key))
+            except ValueError:
+                # decoding failed
+                self.add2log("first time for %s" % (md.metadata_key))
             for et in md.get_all_event_types():
                 # Adding the time.end filter for the data since it is not used for the metadata
                 #use previously recorded end time if available
                 et.filters.time_start = self.time_start
                 if et.event_type in self.time_starts.keys():
                      et.filters.time_start = self.time_starts[et.event_type]
-                     self.add2log("loaded previous time_start %s" % self.time_start)
-                et.filters.time_end = self.time_end
+                     self.add2log("loaded previous time_start %s" % et.filters.time_start)
+                # Not to go undefitly in the past but up to one day
+                if et.filters.time_start < time.time() - 43200:
+                    self.add2log("previous time_start %s too old. New time_start today - 24h: %s" % (et.filters.time_start, time.time() - 43200) )
+                    et.filters.time_start =  int(time.time()) - 43200
+                et.filters.time_end = filters.time_end
                 eventype = et.event_type
                 datapoints[eventype] = {}
                 #et = md.get_event_type(eventype)
@@ -246,6 +254,11 @@ class EsmondUploader(object):
                 et.add_data_point(new_event_type, epoch, value)
                 try:
                     et.post_data()
+                    if epoch >= self.time_starts[new_event_type]:
+                        self.time_starts[event_type] = epoch + 1
+                        f = open(self.tmpDir + metadata_key, 'w')
+                        f.write(json.dumps(self.time_starts))
+                        f.close()
                 except Exception as err:
                     self.add2log("Exception adding new point: %s" % err)
                     self.add2log(et.json_payload())
@@ -254,7 +267,7 @@ class EsmondUploader(object):
     # Experimental function to try to recover from missing packet-count-sent or packet-count-lost data
     def getMissingData(self, timestamp, metadata_key, event_type, disp=False):
         filtersEsp = ApiFilters()
-        filtersEsp.verbose = True
+        filtersEsp.verbose = disp
         filtersEsp.metadata_key = metadata_key
         filtersEsp.time_start = timestamp - 30000
         filtersEsp.time_end  = timestamp + 30000 
@@ -274,63 +287,62 @@ class EsmondUploader(object):
         return datapoints
                 
 
-    def postData(self, arguments, event_types, summaries, summaries_data, metadata_key, datapoints, summary = True, disp=False):
-        mp = MetadataPost(self.goc, username=self.username, api_key=self.key, **arguments)
-        for event_type in event_types:
+    def postMetaData(self, arguments, event_types, summaries, summaries_data, metadata_key, datapoints, summary = True, disp=False):
+         mp = MetadataPost(self.goc, username=self.username, api_key=self.key, **arguments)
+         for event_type in summaries.keys():
             mp.add_event_type(event_type)
             if summary:
                 summary_window_map = {}
-                #organize summaries windows by type so that all windows of the same type are in an array
+                #organize summaries windows by type so that all windows of the same type are in an array                                                     
                 for summy in summaries[event_type]:
                     if summy[0] not in summary_window_map:
                         summary_window_map[summy[0]] = []
                     summary_window_map[summy[0]].append(summy[1])
-                #Add each summary type once and give the post object the array of windows
+                #Add each summary type once and give the post object the array of windows                                                                    
                 for summary_type in summary_window_map:
                     mp.add_summary_type(event_type, summary_type, summary_window_map[summary_type])
-        # Publish to MQ
-        if self.mq:
-           self.publishToMq(arguments, event_types, datapoints, summaries_data)
-        # Added the old metadata key
-        mp.add_freeform_key_value("org_metadata_key", metadata_key)
-        new_meta = mp.post_metadata()
-        # Catching bad posts                                                                                                                              
-        if new_meta is None:
-            raise Exception("Post metadata empty, possible problem with user and key")
-        #Getting data already in the data store
+         # Added the old metadata key
+         mp.add_freeform_key_value("org_metadata_key", metadata_key)
+         new_meta = mp.post_metadata()
+         return new_meta
+    
+    # Post data points from a metadata
+    def postBulkData(self, new_meta, old_metadata_key, datapoints, disp=False):
         et = EventTypeBulkPost(self.goc, username=self.username, api_key=self.key, metadata_key=new_meta.metadata_key)
-        for event_type in event_types:
+        for event_type in datapoints.keys():
             for epoch in datapoints[event_type]:
-                # packet-loss-rate is read as a float but should be uploaded as a dict with denominator and numerator                                     
+                # packet-loss-rate is read as a float but should be uploaded as a dict with denominator and numerator                                        
                 if event_type in ['packet-loss-rate', 'packet-loss-rate-bidir']:
-                    # Some extra protection incase the number of datapoints in packet-loss-setn and packet-loss-rate does not match
+                    # Some extra protection incase the number of datapoints in packet-loss-setn and packet-loss-rate does not match                          
                     packetcountsent = 210
                     packetcountlost = 0
                     specialTypes = ['packet-count-sent', 'packet-count-lost']
                     if event_type == 'packet-loss-rate-bidir':
-                        specialTypes = ['packet-count-sent', 'packet-count-lost-bidir']                    
+                        specialTypes = ['packet-count-sent', 'packet-count-lost-bidir']
                     for specialType in specialTypes:
                         if not epoch in datapoints[specialType].keys():
                             self.add2log("Something went wrong time epoch %s not found for %s fixing it" % (specialType, epoch))
                             time.sleep(5)
-                            datapoints_added = self.getMissingData(epoch, metadata_key, specialType)
-                            # Try to get the data once more because we know it is there
+                            datapoints_added = self.getMissingData(epoch, old_metadata_key, specialType)
+                            # Try to get the data once more because we know it is there                                                                     
+  
                             try:
                                 value = datapoints_added[specialType][epoch]
                             except Exception as err:
                                 datapoints_added[specialType][epoch] = 0
                             value = datapoints_added[specialType][epoch]
                             datapoints[specialType][epoch] = value
-                            #et.add_data_point(specialType, epoch, value)
+                            #et.add_data_point(specialType, epoch, value)                                                                                   
+  
                     packetcountsent = datapoints['packet-count-sent'][epoch]
                     if event_type == 'packet-loss-rate-bidir':
                         packetcountlost = datapoints['packet-count-lost-bidir'][epoch]
                     else:
                         packetcountlost = datapoints['packet-count-lost'][epoch]
                     et.add_data_point(event_type, epoch, {'denominator': packetcountsent, 'numerator': packetcountlost})
-                    # For the rests the data points are uploaded as they are read                                                         
+                    # For the rests the data points are uploaded as they are read
                 else:
-                    # datapoint are tuples the first field is epoc the second the value  
+                    # datapoint are tuples the first field is epoc the second the value                                                                     
                     et.add_data_point(event_type, epoch, datapoints[event_type][epoch])
         if disp:
             self.add2log("Datapoints to upload:")
@@ -339,14 +351,45 @@ class EsmondUploader(object):
             warnings.simplefilter('error',  EventTypePostWarning)
             try:
                 et.post_data()
-            # Some EventTypePostWarning went wrong:
+            # Some EventTypePostWarning went wrong:                                                                                                          
             except Exception as err:
-                self.postDataSlow(json.loads(et.json_payload()), new_meta.metadata_key, datapoints, disp)
-            for event_type in event_types:
+                self.add2log("Probably this data already existed")
+                #self.postDataSlow(json.loads(et.json_payload()), new_meta.metadata_key, datapoints, disp)                                                   
+            for event_type in datapoints.keys():
                 if len(datapoints[event_type].keys()) > 0:
+                    if event_type not in self.time_starts:
+                        self.time_starts[event_type] = 0
                     next_time_start = max(datapoints[event_type].keys())+1
-                    self.time_starts[event_type] = int(next_time_start)
-                    f = open(self.tmpDir + metadata_key, 'w')
-                    f.write(json.dumps(self.time_starts))
-                    f.close()
+                    if next_time_start > self.time_starts[event_type]:
+                        self.time_starts[event_type] = int(next_time_start)
+            f = open(self.tmpDir + old_metadata_key, 'w')
+            f.write(json.dumps(self.time_starts))
+            f.close()
         self.add2log("posting NEW METADATA/DATA %s" % new_meta.metadata_key)
+
+    def postData(self, arguments, event_types, summaries, summaries_data, metadata_key, datapoints, summary = True, disp=False):
+        lenght_post = -1
+        for event_type in datapoints.keys():
+            if len(datapoints[event_type])>lenght_post:
+                lenght_post = len(datapoints[event_type])
+        new_meta = self.postMetaData(arguments, event_types, summaries, summaries_data, metadata_key, datapoints, summary, disp)
+        # Catching bad posts                                                                                                                                 
+        if new_meta is None:
+                raise Exception("Post metadata empty, possible problem with user and key")
+        if lenght_post == 0:
+            self.add2log("No new datapoints skipping posting for efficiency")
+            return
+        step_size = 100
+        for step in range(0, lenght_post, step_size):
+            chunk_datapoints = {}
+            for event_type in datapoints.keys():
+                chunk_datapoints[event_type] = {}
+                if len(datapoints[event_type].keys())>0:
+                    pointsconsider = sorted(datapoints[event_type].keys())[step:step+step_size]
+                    for point in pointsconsider:
+                        chunk_datapoints[event_type][point] = datapoints[event_type][point]
+            self.postBulkData(new_meta, metadata_key, chunk_datapoints, disp=False)
+            # Publish to MQ                                                                                                                                 
+            if self.mq and new_meta != None:
+                self.publishToMq(arguments, event_types, chunk_datapoints, summaries_data)
+            
