@@ -55,11 +55,12 @@ class EsmondUploader(object):
     
     def __init__(self,verbose,start,end,connect,username=None,key=None, goc=None, allowedEvents='packet-loss-rate', cert=None, certkey=None, dq=None, tmp='/tmp/rsv-perfsonar/'):
         # Filter variables
-        #filters.verbose = verbose
+        #filters.verbose = True
         filters.verbose = verbose
         # this are the filters that later will be used for the data
         self.time_end = int(time.time())
         self.time_start = int(self.time_end - start)
+        self.time_max_start = int(time.time()) - 24*60*60
         # Filter for metadata
         filters.time_start = int(self.time_end - 3*start)
         # Added time_end for bug that Andy found as sometime far in the future 24 hours
@@ -83,7 +84,7 @@ class EsmondUploader(object):
         self.gconn = ApiConnect(self.goc, gfilters)
         self.cert = cert
         self.certkey = certkey
-        self.tmpDir = tmp + self.connect +'/'
+        self.tmpDir = tmp + '/' + self.connect +'/'
         # Convert the allowedEvents into a list
         self.allowedEvents = allowedEvents.split(',')
         
@@ -147,10 +148,8 @@ class EsmondUploader(object):
         else:
             self.add2log("Omiting Sumaries")
         metadata = self.getMetaDataConnection(self.conn)
-        oldDataPoints = {}
-        datapoints = {}
-        #oldDataPoints = self.getExistingData()
         for md in metadata:
+            arguments = {}
             # Building the arguments for the post
             arguments = {
                     "subject_type": md.subject_type,
@@ -169,9 +168,6 @@ class EsmondUploader(object):
             # Assigning each metadata object property to class variables
             event_types = md.event_types
             metadata_key = md.metadata_key
-            if disp:
-                self.add2log("event_types")
-                self.add2log(event_types)
             # print extra debugging only if requested
             self.add2log("Reading New METADATA/DATA %s" % (md.metadata_key))
             if disp:
@@ -203,9 +199,9 @@ class EsmondUploader(object):
                      et.filters.time_start = self.time_starts[et.event_type]
                      self.add2log("loaded previous time_start %s" % et.filters.time_start)
                 # Not to go undefitly in the past but up to one day
-                if et.filters.time_start < time.time() - 43200:
-                    self.add2log("previous time_start %s too old. New time_start today - 24h: %s" % (et.filters.time_start, time.time() - 43200) )
-                    et.filters.time_start =  int(time.time()) - 43200
+                if et.filters.time_start < self.time_max_start:
+                    self.add2log("previous time_start %s too old. New time_start today - 24h: %s" % (et.filters.time_start, self.time_max_start) )
+                    et.filters.time_start =  self.time_max_start
                 et.filters.time_end = filters.time_end
                 eventype = et.event_type
                 datapoints[eventype] = {}
@@ -332,7 +328,7 @@ class EsmondUploader(object):
                                 datapoints_added[specialType][epoch] = 0
                             value = datapoints_added[specialType][epoch]
                             datapoints[specialType][epoch] = value
-                            #et.add_data_point(specialType, epoch, value)                                                                                   
+                            et.add_data_point(specialType, epoch, value)                                                                                   
   
                     packetcountsent = datapoints['packet-count-sent'][epoch]
                     if event_type == 'packet-loss-rate-bidir':
