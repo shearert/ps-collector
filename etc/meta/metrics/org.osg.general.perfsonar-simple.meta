@@ -5,5 +5,5 @@ service-type = Perfsonar-Monitor
 output-format = brief
 enable-by-default = False
 description = Uploads the information to myosg of a perfsonar ndoe
-need-proxy = True
+need-proxy = False
 [org.osg.general.perfsonar-simple env]
