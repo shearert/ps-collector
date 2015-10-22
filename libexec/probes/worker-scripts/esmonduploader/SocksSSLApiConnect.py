@@ -7,18 +7,16 @@ from esmond_client.perfsonar.query import Metadata
 import requesocks
 
 class SocksSSLApiConnect(ApiConnect):
-
     def get_metadata(self, cert=None, key=None, verify=False):
         if self.script_alias:
             archive_url = '{0}/{1}/perfsonar/archive/'.format(self.api_url, self.script_alias)
         else:
             archive_url = '{0}/perfsonar/archive/'.format(self.api_url)
-
         if cert and key:
             archive_url = archive_url.replace("http://", "https://", 1)
             r = requests.get(archive_url,
             params=dict(self.filters.metadata_filters, **self.filters.time_filters),
-            headers = self.request_headers, verify=verify, cert=(cert, key))
+            headers = self.request_headers, verify=verify, cert=(cert,key))
         elif os.getenv('SOCKS5'):
             session.proxies = {'http': os.getenv('SOCKS5'), 'https': os.getenv('SOCKS5')}
             session.verify = verify

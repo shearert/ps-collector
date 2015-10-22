@@ -129,16 +129,20 @@ class EsmondUploader(object):
                  
     # Expects an object of tipe SocksSSLApiConnect
     def getMetaDataConnection(self, conn):
+        metadata = None
         try:
             metadata = conn.get_metadata()
-            return metadata
+            md =  metadata.next()
+            metadata = conn.get_metadata()
         except Exception as e:
-            self.add2log("Unable to connect to %s, exception was %s, trying SSL" % (uri, e))
+            self.add2log("Unable to connect to %s, exception was %s, trying SSL" % ("http://"+self.connect, e))
             try:
-                metadata = conn.get_metadata(cert=self.cert, key=self.cert-key)
-                return metadata
+                metadata = conn.get_metadata(cert=self.cert, key=self.certkey)
+                md = metadata.next()
+                metadata = conn.get_metadata(cert=self.cert, key=self.certkey)
             except Exception as e:
-                self.add2log("Unable to connect to %s, exception was %s, " % (uri, e))
+                raise Exception("Unable to connect to %s, exception was %s, " % ("https://"+self.connect, e))
+        return metadata
 
     # Get Data
     def getData(self, disp=False, summary=True):
@@ -147,96 +151,113 @@ class EsmondUploader(object):
             self.add2log("Reading Summaries")
         else:
             self.add2log("Omiting Sumaries")
-        metadata = self.getMetaDataConnection(self.conn)
-        for md in metadata:
-            arguments = {}
-            # Building the arguments for the post
-            arguments = {
-                    "subject_type": md.subject_type,
-                    "source": md.source,
-                    "destination": md.destination,
-                    "tool_name": md.tool_name,
-                    "measurement_agent": md.measurement_agent,
-                    "input_source": md.input_source,
-                    "input_destination": md.input_destination,
-                    "tool_name": md.tool_name
-            }
-            if not md.time_duration is None:
-                arguments["time_duration"] = md.time_duration
-            if not md.ip_transport_protocol is None:
-                arguments["ip_transport_protocol"] = md.ip_transport_protocol
-            # Assigning each metadata object property to class variables
-            event_types = md.event_types
-            metadata_key = md.metadata_key
-            # print extra debugging only if requested
-            self.add2log("Reading New METADATA/DATA %s" % (md.metadata_key))
-            if disp:
-                self.add2log("Posting args: ")
-                self.add2log(arguments)
-            # Get Events and Data Payload
-            summaries = {}
-            summaries_data = {}
-            # datapoints is a dict of lists
-            # Each of its members are lists of datapoints of a given event_type
-            datapoints = {}
-            datapointSample = {}
-            #load next start times
-            self.time_starts = {}
+        metadata = self.conn.get_metadata()
+        try:
+            #Test to see if https connection is succesfull
+            md = metadata.next()
+            self.readMetaData(md, disp, summary)
+        except Exception as e:
+            #Test to see if https connection is sucesful
+            self.add2log("Unable to connect to %s, exception was %s, trying SSL" % ("http://"+self.connect, e))
             try:
-                f = open(self.tmpDir+md.metadata_key, 'r')
-                self.time_starts = json.loads(f.read())
-                f.close()
-            except IOError:
-                self.add2log("first time for %s" % (md.metadata_key))
-            except ValueError:
-                # decoding failed
-                self.add2log("first time for %s" % (md.metadata_key))
-            for et in md.get_all_event_types():
-                # Adding the time.end filter for the data since it is not used for the metadata
-                #use previously recorded end time if available
-                et.filters.time_start = self.time_start
-                if et.event_type in self.time_starts.keys():
-                     et.filters.time_start = self.time_starts[et.event_type]
-                     self.add2log("loaded previous time_start %s" % et.filters.time_start)
-                # Not to go undefitly in the past but up to one day
-                if et.filters.time_start < self.time_max_start:
-                    self.add2log("previous time_start %s too old. New time_start today - 24h: %s" % (et.filters.time_start, self.time_max_start) )
-                    et.filters.time_start =  self.time_max_start
-                et.filters.time_end = filters.time_end
-                eventype = et.event_type
-                datapoints[eventype] = {}
-                #et = md.get_event_type(eventype)
-                if summary:
-                    summaries[eventype] = et.summaries
-                else:
-                    summaries[eventype] = []
-                # Skip reading data points for certain event types to improv efficiency  
-                if eventype not in self.allowedEvents:                                                                                                  
+                metadata = self.conn.get_metadata(cert=self.cert, key=self.certkey)
+                md = metadata.next()
+                self.readMetaData(md, disp, summary)
+            except Exception as e:
+                raise Exception("Unable to connect to %s, exception was %s, " % ("https://"+self.connect, e))
+        for md in metadata:
+            self.readMetaData(md, disp, summary)
+
+    # Md is a metadata object of query
+    def readMetaData(self, md, disp=False, summary=True):
+        arguments = {}
+        # Building the arguments for the post
+        arguments = {
+            "subject_type": md.subject_type,
+            "source": md.source,
+            "destination": md.destination,
+            "tool_name": md.tool_name,
+            "measurement_agent": md.measurement_agent,
+            "input_source": md.input_source,
+            "input_destination": md.input_destination,
+            "tool_name": md.tool_name
+        }
+        if not md.time_duration is None:
+            arguments["time_duration"] = md.time_duration
+        if not md.ip_transport_protocol is None:
+            arguments["ip_transport_protocol"] = md.ip_transport_protocol
+        # Assigning each metadata object property to class variables
+        event_types = md.event_types
+        metadata_key = md.metadata_key
+        # print extra debugging only if requested
+        self.add2log("Reading New METADATA/DATA %s" % (md.metadata_key))
+        if disp:
+            self.add2log("Posting args: ")
+            self.add2log(arguments)
+        # Get Events and Data Payload
+        summaries = {}
+        summaries_data = {}
+        # datapoints is a dict of lists
+        # Each of its members are lists of datapoints of a given event_type
+        datapoints = {}
+        datapointSample = {}
+        #load next start times
+        self.time_starts = {}
+        try:
+            f = open(self.tmpDir+md.metadata_key, 'r')
+            self.time_starts = json.loads(f.read())
+            f.close()
+        except IOError:
+            self.add2log("first time for %s" % (md.metadata_key))
+        except ValueError:
+            # decoding failed
+            self.add2log("first time for %s" % (md.metadata_key))
+        for et in md.get_all_event_types():
+            # Adding the time.end filter for the data since it is not used for the metadata
+            #use previously recorded end time if available
+            et.filters.time_start = self.time_start
+            if et.event_type in self.time_starts.keys():
+                et.filters.time_start = self.time_starts[et.event_type]
+                self.add2log("loaded previous time_start %s" % et.filters.time_start)
+            # Not to go undefitly in the past but up to one day
+            if et.filters.time_start < self.time_max_start:
+                self.add2log("previous time_start %s too old. New time_start today - 24h: %s" % (et.filters.time_start, self.time_max_start) )
+                et.filters.time_start =  self.time_max_start
+            et.filters.time_end = filters.time_end
+            eventype = et.event_type
+            datapoints[eventype] = {}
+            #et = md.get_event_type(eventype)
+            if summary:
+                summaries[eventype] = et.summaries
+            else:
+                summaries[eventype] = []
+            # Skip reading data points for certain event types to improv efficiency  
+            if eventype not in self.allowedEvents:                                                                                                  
+                continue
+            # Read summary data 
+            summaries_data[eventype] = []
+            for summ in et.get_all_summaries():
+                summ_data = summ.get_data()
+                summ_dp = [ (dp.ts_epoch, dp.val) for dp in summ_data.data ]
+                if not summ_dp:
                     continue
-                # Read summary data 
-                summaries_data[eventype] = []
-                for summ in et.get_all_summaries():
-                    summ_data = summ.get_data()
-                    summ_dp = [ (dp.ts_epoch, dp.val) for dp in summ_data.data ]
-                    if not summ_dp:
-                        continue
-                    summaries_data[eventype].append({'event_type': eventype,
-                                                     'summary_type' : summ.summary_type,
-                                                     'summary_window' : summ.summary_window,
-                                                     'summary_data' : summ_dp })
+                summaries_data[eventype].append({'event_type': eventype,
+                                                   'summary_type' : summ.summary_type,
+                                                   'summary_window' : summ.summary_window,
+                                                   'summary_data' : summ_dp })
                 # Read datapoints
-                dpay = et.get_data()
-                tup = ()
-                for dp in dpay.data:
-                    tup = (dp.ts_epoch, dp.val)
-                    datapoints[eventype][dp.ts_epoch] = dp.val
-                    # print debugging data
-                self.add2log("For event type %s, %d new data points"  %(eventype, len(datapoints[eventype])))
-                if len(datapoints[eventype]) > 0 and not isinstance(tup[1], (dict,list)): 
-                    # picking the first one as the sample
-                    datapointSample[eventype] = tup[1]
-            self.add2log("Sample of the data being posted %s" % datapointSample)
-            self.postData(arguments, event_types, summaries, summaries_data, metadata_key, datapoints, summary, disp)
+            dpay = et.get_data()
+            tup = ()
+            for dp in dpay.data:
+                tup = (dp.ts_epoch, dp.val)
+                datapoints[eventype][dp.ts_epoch] = dp.val
+                # print debugging data
+            self.add2log("For event type %s, %d new data points"  %(eventype, len(datapoints[eventype])))
+            if len(datapoints[eventype]) > 0 and not isinstance(tup[1], (dict,list)): 
+                # picking the first one as the sample
+                datapointSample[eventype] = tup[1]
+        self.add2log("Sample of the data being posted %s" % datapointSample)
+        self.postData(arguments, event_types, summaries, summaries_data, metadata_key, datapoints, summary, disp)
 
     def postDataSlow(self, json_payload, new_metadata_key, original_datapoints, disp=False):
         data = json_payload["data"]
