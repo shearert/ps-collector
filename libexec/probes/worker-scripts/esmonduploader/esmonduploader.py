@@ -15,7 +15,8 @@ from esmond_client.perfsonar.post import EventTypeBulkPostWarning, EventTypePost
 
 # New module with socks5 OR SSL connection that inherits ApiConnect
 from SocksSSLApiConnect import SocksSSLApiConnect
-
+from SSLNodeInfo import EventTypeSSL
+from SSLNodeInfo import SummarySSL
 # Need to push to cern message queue
 from messaging.message import Message
 from messaging.queue.dqs import DQS
@@ -55,8 +56,8 @@ class EsmondUploader(object):
     
     def __init__(self,verbose,start,end,connect,username=None,key=None, goc=None, allowedEvents='packet-loss-rate', cert=None, certkey=None, dq=None, tmp='/tmp/rsv-perfsonar/'):
         # Filter variables
-        #filters.verbose = True
         filters.verbose = verbose
+        #filters.verbose = True 
         # this are the filters that later will be used for the data
         self.time_end = int(time.time())
         self.time_start = int(self.time_end - start)
@@ -87,7 +88,8 @@ class EsmondUploader(object):
         self.tmpDir = tmp + '/' + self.connect +'/'
         # Convert the allowedEvents into a list
         self.allowedEvents = allowedEvents.split(',')
-        
+        # In general not use SSL for contacting the perfosnar hosts
+        self.useSSL = False
         #Code to allow publishing data to the mq
         self.mq = None
         self.dq = dq
@@ -126,24 +128,6 @@ class EsmondUploader(object):
             except Exception as e:
                 self.add2log("Failed to add message to mq %s, exception was %s" % (self.dq, e))
 
-                 
-    # Expects an object of tipe SocksSSLApiConnect
-    def getMetaDataConnection(self, conn):
-        metadata = None
-        try:
-            metadata = conn.get_metadata()
-            md =  metadata.next()
-            metadata = conn.get_metadata()
-        except Exception as e:
-            self.add2log("Unable to connect to %s, exception was %s, trying SSL" % ("http://"+self.connect, e))
-            try:
-                metadata = conn.get_metadata(cert=self.cert, key=self.certkey)
-                md = metadata.next()
-                metadata = conn.get_metadata(cert=self.cert, key=self.certkey)
-            except Exception as e:
-                raise Exception("Unable to connect to %s, exception was %s, " % ("https://"+self.connect, e))
-        return metadata
-
     # Get Data
     def getData(self, disp=False, summary=True):
         self.add2log("Only reading data for event types: %s" % (str(self.allowedEvents)))
@@ -162,6 +146,7 @@ class EsmondUploader(object):
             try:
                 metadata = self.conn.get_metadata(cert=self.cert, key=self.certkey)
                 md = metadata.next()
+                self.useSSL = True
                 self.readMetaData(md, disp, summary)
             except Exception as e:
                 raise Exception("Unable to connect to %s, exception was %s, " % ("https://"+self.connect, e))
@@ -213,6 +198,9 @@ class EsmondUploader(object):
             # decoding failed
             self.add2log("first time for %s" % (md.metadata_key))
         for et in md.get_all_event_types():
+            if self.useSSL:
+                etSSL = EventTypeSSL(et, self.cert, self.certkey)
+                et = etSSL
             # Adding the time.end filter for the data since it is not used for the metadata
             #use previously recorded end time if available
             et.filters.time_start = self.time_start
@@ -237,6 +225,9 @@ class EsmondUploader(object):
             # Read summary data 
             summaries_data[eventype] = []
             for summ in et.get_all_summaries():
+                if self.useSSL:
+                    summSSL = SummarySSL(summ, self.cert, self.certkey)
+                    summ = summSSL
                 summ_data = summ.get_data()
                 summ_dp = [ (dp.ts_epoch, dp.val) for dp in summ_data.data ]
                 if not summ_dp:
@@ -289,13 +280,19 @@ class EsmondUploader(object):
         filtersEsp.time_start = timestamp - 30000
         filtersEsp.time_end  = timestamp + 30000 
         conn = SocksSSLApiConnect("http://"+self.connect, filtersEsp)
-        metadata = self.getMetaDataConnection(conn)
+        if self.useSSL:
+            metadata = conn.get_metadata(cert=self.cert, key=self.certkey)
+        else:
+            metadata = conn.get_metadata()
         datapoints = {}
         datapoints[event_type] = {}
         for md in metadata:
             if not md.metadata_key == metadata_key:
                 continue
             et = md.get_event_type(event_type)
+            if self.useSSL:
+                etSSL = EventTypeSSL(et, self.cert, self.certkey)
+                et = etSSL
             dpay = et.get_data()
             for dp in dpay.data:
                 if dp.ts_epoch == timestamp:

@@ -18,6 +18,7 @@ class SocksSSLApiConnect(ApiConnect):
             params=dict(self.filters.metadata_filters, **self.filters.time_filters),
             headers = self.request_headers, verify=verify, cert=(cert,key))
         elif os.getenv('SOCKS5'):
+            session = requesocks.session()
             session.proxies = {'http': os.getenv('SOCKS5'), 'https': os.getenv('SOCKS5')}
             session.verify = verify
             r = session.get(archive_url,
@@ -52,17 +53,21 @@ class SocksSSLApiConnect(ApiConnect):
                     if self.filters.verbose:
                         print 'current total results: {0}'.format(len(data))
                         print 'issuing request with offset: {0}'.format(offset)
-
-                    r = requests.get(archive_url,
-                        params=dict(self.filters.metadata_filters, offset=offset, **self.filters.time_filters),
-                        headers = self.request_headers)
+                    if cert and key:
+                        r = requests.get(archive_url,
+                            params=dict(self.filters.metadata_filters, **self.filters.time_filters),
+                            headers = self.request_headers, verify=verify, cert=(cert,key))
+                    else:
+                        r = requests.get(archive_url,
+                            params=dict(self.filters.metadata_filters, offset=offset, **self.filters.time_filters),
+                            headers = self.request_headers)
                     self.inspect_request(r)
 
                     if r.status_code != 200:
                         print 'error fetching paginated content'
                         self.http_alert(r)
                         return
-                        yield
+                    yield
 
                     tmp = json.loads(r.text)
 
