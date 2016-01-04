@@ -248,7 +248,10 @@ class EsmondUploader(object):
                 # picking the first one as the sample
                 datapointSample[eventype] = tup[1]
         self.add2log("Sample of the data being posted %s" % datapointSample)
-        self.postData(arguments, event_types, summaries, summaries_data, metadata_key, datapoints, summary, disp)
+        try:
+            self.postData(arguments, event_types, summaries, summaries_data, metadata_key, datapoints, summary, disp)
+        except Exception as e:
+            raise Exception("Unable to post to %s, because exception %s. Check postgresql and cassandra services are up. Then check user and key are ok "  %(self.goc, e))
 
     def postDataSlow(self, json_payload, new_metadata_key, original_datapoints, disp=False):
         data = json_payload["data"]

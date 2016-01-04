@@ -1,10 +1,11 @@
 import json
 import os
-import requests
 from esmond_client.perfsonar.query import ApiConnect
 from esmond_client.perfsonar.query import Metadata
-# Added to support requesocks
-import requesocks
+
+import requests
+requests.packages.urllib3.disable_warnings()
+
 
 class SocksSSLApiConnect(ApiConnect):
     def get_metadata(self, cert=None, key=None, verify=False):

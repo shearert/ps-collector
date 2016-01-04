@@ -1,13 +1,13 @@
 import json
 import os
-import requests
 import copy
 from esmond_client.perfsonar.query import EventType
 from esmond_client.perfsonar.query import Metadata
 from esmond_client.perfsonar.query import Summary
 from esmond_client.perfsonar.query import QueryLimitException
-# Added to support requesocks
-import requesocks
+
+import requests
+requests.packages.urllib3.disable_warnings()
 
 class EventTypeSSL(EventType):
     def __init__(self, EventTypeParent, cert=None, key=None):
@@ -64,6 +64,7 @@ class EventTypeSSL(EventType):
                     self.warn('time start >= time end - exiting query loop')
                     break
             else:
+                print 'Problems withe the connection to'
                 self.http_alert(r)
                 raise QueryLimitException
         if self.filters.verbose: print '  *** finished with {0} results'.format(len(data_payload))
