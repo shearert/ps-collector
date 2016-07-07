@@ -35,13 +35,6 @@ install:
 	#Install condor-cron configs
 	install -d $(DESTDIR)/$(sysconfdir)/condor-cron/config.d
 	cp -r etc/condor-cron/config.d $(DESTDIR)/$(sysconfdir)/condor-cron/
-	# Create the log dirs
-	install -d $(DESTDIR)/$(localstatedir)/log/rsv/metrics
-	install -d $(DESTDIR)/$(localstatedir)/log/rsv/probes
-	# Put log rotation in place
-	install -d $(DESTDIR)/$(sysconfdir)/logrotate.d
-	install -m 0644 logrotate/rsv-perfsonar-metrics.logrotate $(DESTDIR)/$(sysconfdir)/logrotate.d/rsv-perfsonar-metrics
-
 
 
 .PHONY: _default install
