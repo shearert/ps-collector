@@ -98,9 +98,29 @@ class EsmondUploader(object):
                 self.mq = DQS(path=self.dq)
             except Exception as e:
                 self.add2log("Unable to create dirq %s, exception was %s, " % (self.dq, e))
+                
+    # Publish summaries to Mq
+    def publishSToMq(self, arguments, event_types, summaries, summaries_data):
+        for event in summaries_data.keys():
+            if not summaries_data[event]:
+                continue
+            msg_head = { 'input-source' : arguments['input_source'],
+                         'input-destination' : arguments['input_destination'],
+                         'event-type' : event,
+                         'rsv-timestamp' : "%s" % time.time(),
+                         'summaries' : 1,
+                         'destination' : '/topic/perfsonar.summary.' + event }
+            msg_body = { 'meta': arguments }
+            msg_body['summaries'] = summaries_data[event]
+            msg = Message(body=json.dumps(msg_body), header=msg_head)
+            # add to mq
+            try:
+                self.mq.add_message(msg)
+            except Exception as e:
+                self.add2log("Failed to add message to mq %s, exception was %s" % (self.dq, e))
     
     # Publish message to Mq
-    def publishToMq(self, arguments, event_types, datapoints, summaries_data):
+    def publishRToMq(self, arguments, event_types, datapoints):
         for event in datapoints.keys():
             # filter events for mq (must be subset of the probe's filter)
             if event not in ('path-mtu', 'histogram-owdelay','packet-loss-rate','histogram-ttl','throughput','packet-retransmits','packet-trace'):
@@ -114,13 +134,9 @@ class EsmondUploader(object):
                          'event-type' : event,
                          'rsv-timestamp' : "%s" % time.time(),
                          'summaries' : 0,
-                         'destination' : '/topic/perfsonar.' + event}
+                         'destination' : '/topic/perfsonar.raw.' + event}
             msg_body = { 'meta': arguments }
-            if summaries_data[event]:
-                msg_body['summaries'] = summaries_data[event]
-                msg_head['summaries'] = 1
-            if datapoints[event]:
-                msg_body['datapoints'] = datapoints[event]
+            msg_body['datapoints'] = datapoints[event]
             msg = Message(body=json.dumps(msg_body), header=msg_head)
             # add to mq
             try:
@@ -396,6 +412,9 @@ class EsmondUploader(object):
         if lenght_post == 0:
             self.add2log("No new datapoints skipping posting for efficiency")
             return
+        # publish summaries
+        if self.mq and summaries_data:
+            self.publishSToMq(arguments, event_types, summaries, summaries_data)
         step_size = 100
         for step in range(0, lenght_post, step_size):
             chunk_datapoints = {}
@@ -406,7 +425,7 @@ class EsmondUploader(object):
                     for point in pointsconsider:
                         chunk_datapoints[event_type][point] = datapoints[event_type][point]
             self.postBulkData(new_meta, metadata_key, chunk_datapoints, disp=False)
-            # Publish to MQ                                                                                                                                 
+            # Publish datapoints                                                                                                                                  
             if self.mq and new_meta != None:
-                self.publishToMq(arguments, event_types, chunk_datapoints, summaries_data)
+                self.publishRToMq(arguments, event_types, chunk_datapoints)
             
