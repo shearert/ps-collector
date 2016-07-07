@@ -100,7 +100,7 @@ class EsmondUploader(object):
                 self.add2log("Unable to create dirq %s, exception was %s, " % (self.dq, e))
                 
     # Publish summaries to Mq
-    def publishStoMq(self, arguments, event_types, summaries, summaries_data):
+    def publishSToMq(self, arguments, event_types, summaries, summaries_data):
         for event in summaries_data.keys():
             if not summaries_data[event]:
                 continue
