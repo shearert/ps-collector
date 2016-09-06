@@ -223,10 +223,6 @@ class EsmondUploader(object):
             if et.event_type in self.time_starts.keys():
                 et.filters.time_start = self.time_starts[et.event_type]
                 self.add2log("loaded previous time_start %s" % et.filters.time_start)
-            # Not to go undefitly in the past but up to one day
-            if et.filters.time_start < self.time_max_start:
-                self.add2log("previous time_start %s too old. New time_start today - 24h: %s" % (et.filters.time_start, self.time_max_start) )
-                et.filters.time_start =  self.time_max_start
             et.filters.time_end = filters.time_end
             eventype = et.event_type
             datapoints[eventype] = {}
