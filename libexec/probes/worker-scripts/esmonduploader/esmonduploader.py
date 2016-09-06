@@ -61,7 +61,7 @@ class EsmondUploader(object):
         # this are the filters that later will be used for the data
         self.time_end = int(time.time())
         self.time_start = int(self.time_end - start)
-        self.time_max_start = int(time.time()) - 24*60*60
+        self.time_max_start = int(time.time()) - 30*24*60*60
         # Filter for metadata
         filters.time_start = int(self.time_end - 3*start)
         # Added time_end for bug that Andy found as sometime far in the future 24 hours
