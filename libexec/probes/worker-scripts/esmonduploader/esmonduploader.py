@@ -3,6 +3,7 @@ import time
 import inspect
 import json
 import warnings
+import sys
 from time import strftime
 from time import localtime
 from optparse import OptionParser
@@ -41,6 +42,7 @@ parser.add_option('-g', '--goc', help='the goc address to upload the information
 parser.add_option('-t', '--timeout', help='the maxtimeout that the probe is allowed to run in secs', dest='timeout', default=1000, action='store')
 parser.add_option('-x', '--summaries', help='upload and read data summaries', dest='summary', default=True, action='store')
 parser.add_option('-a', '--allowedEvents', help='The allowedEvents', dest='allowedEvents', default=False, action='store')
+parser.add_option('-A', '--allowedMQEvents', help='The allowedMQEvents', dest='allowedMQEvents', default=False, action='store')
 #Added support for SSL cert and key connection to the remote hosts
 parser.add_option('-c', '--cert', help='Path to the certificate', dest='cert', default='/etc/grid-security/rsv/rsvcert.pem', action='store')
 parser.add_option('-o', '--certkey', help='Path to the certificate key', dest='certkey', default='/etc/grid-security/rsv/rsvkey.pem', action='store')
@@ -54,7 +56,7 @@ class EsmondUploader(object):
     def add2log(self, log):
         print strftime("%a, %d %b %Y %H:%M:%S", localtime()), str(log)
     
-    def __init__(self,verbose,start,end,connect,username=None,key=None, goc=None, allowedEvents='packet-loss-rate', cert=None, certkey=None, dq=None, tmp='/tmp/rsv-perfsonar/'):
+    def __init__(self,verbose,start,end,connect,username=None,key=None, goc=None, allowedEvents='packet-loss-rate', cert=None, certkey=None, dq=None, tmp='/tmp/rsv-perfsonar/', allowedMQEvents='packet-loss-rate'):
         # Filter variables
         filters.verbose = verbose
         #filters.verbose = True 
@@ -87,6 +89,12 @@ class EsmondUploader(object):
         self.tmpDir = tmp + '/' + self.connect +'/'
         # Convert the allowedEvents into a list
         self.allowedEvents = allowedEvents.split(',')
+        # List of events that are allwoed to send via the MQ
+        # If not present should be the same as allowed events
+        if allowedMQEvents != None:
+            self.allowedMQEvents = allowedMQEvents.split(',')
+        else:
+            self.allowedMQEvents = allowedEvents
         # In general not use SSL for contacting the perfosnar hosts
         self.useSSL = False
         #Code to allow publishing data to the mq
@@ -100,6 +108,7 @@ class EsmondUploader(object):
                 
     # Publish summaries to Mq
     def publishSToMq(self, arguments, event_types, summaries, summaries_data):
+        size_limit = 10000000
         for event in summaries_data.keys():
             if not summaries_data[event]:
                 continue
@@ -112,6 +121,11 @@ class EsmondUploader(object):
             msg_body = { 'meta': arguments }
             msg_body['summaries'] = summaries_data[event]
             msg = Message(body=json.dumps(msg_body), header=msg_head)
+            size_msg = sys.getsizeof(msg_body['summaries'])
+            # if size of the message is larger than 10MB discarrd
+            if size_msg > size_limit:
+                self.add2log("Size of message body bigger than limit, discarding")
+                continue
             # add to mq
             try:
                 self.mq.add_message(msg)
@@ -122,7 +136,7 @@ class EsmondUploader(object):
     def publishRToMq(self, arguments, event_types, datapoints):
         for event in datapoints.keys():
             # filter events for mq (must be subset of the probe's filter)
-            if event not in ('path-mtu', 'histogram-owdelay','packet-loss-rate','histogram-ttl','throughput','packet-retransmits','packet-trace'):
+            if event not in self.allowedMQEvents:
                 continue
             # skip events that have no datapoints 
             if not datapoints[event]:

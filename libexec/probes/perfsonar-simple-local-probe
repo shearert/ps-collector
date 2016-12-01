@@ -36,6 +36,7 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
         self.maxstart = 43200
         self.summaries = False
         self.allowedEvents = "packet-loss-rate, throughput, packet-trace, packet-retransmits, histogram-owdelay, packet-count-sent,packet-count-lost"
+        self.allowedMQEvents = self.allowedEvents
         self.directoryqueue = None
         self.tmpdirectory = '/tmp/rsv-perfsonar/'
         # Add the options so the parsing knows what to expect
@@ -50,6 +51,7 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
         self.addopt("", "summary=", "--summary True or False. Read and upload data summaries or not")
         self.addopt("", "maxstart=", "--maxstart the max number in seconds it will go in the past to retrieve information")
         self.addopt("", "allowedEvents=", "--allowedEvents a list with the allowed event types")
+        self.addopt("", "allowedMQEvents=", "--allowedMQEvents a list with the allowed event types")
         self.addopt("", 'directoryqueue=', "--directoryqueue a dir for stompctl")
         self.addopt("", 'tmpdirectory=', "--tmpdirectory a directory to store temporary timestamps must be read/writebl by rsv")
 
@@ -84,6 +86,8 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
             elif opt =='--allowedEvents':
                 # Replacing white spaces with nothing
                 self.allowedEvents = arg.replace(" ", '')
+            elif opt =='--allowedMQEvents':
+                self.allowedMQEvents = arg.replace(" ", '')
             if self.host == self.localhost:
                 self.is_local = True
             else:
@@ -91,8 +95,8 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
         return options, optlist, remainder
 
     def runCallerScript(self):
-        cmd = "source ./esmondCaller.sh %s %d %s %s %s %s %s %s %s %s %s %s %s" % (self.host, int(self.start), 
-                                                                       self.username, self.key, self.goc_url, self.debug, self.soft_timeout, self.summaries, self.allowedEvents, self.x509usercert, self.x509userkey, self.directoryqueue, self.tmpdirectory)
+        cmd = "source ./esmondCaller.sh %s %d %s %s %s %s %s %s %s %s %s %s %s %s" % (self.host, int(self.start), 
+                                                                       self.username, self.key, self.goc_url, self.debug, self.soft_timeout, self.summaries, self.allowedEvents, self.x509usercert, self.x509userkey, self.directoryqueue, self.tmpdirectory, self.allowedMQEvents)
         #self.add_message("Command call %s" % cmd)
         ec, out = rsvprobe.run_command(cmd, workdir="/usr/libexec/rsv/probes/worker-scripts")
         return out
@@ -129,7 +133,7 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
            if newStart < int(self.maxstart):
                self.start = int(newStart)
            else:
-               self.add_message("previous time_start %d too old. New time_start today - 24h: %s" % (newStart, self.maxstart) )
+               self.add_message("previous time_start %d too old. set to maxstart: %s" % (newStart, self.maxstart) )
                self.start = int(self.maxstart)
         else:
             self.add_message("No previous sucesfull run found")
