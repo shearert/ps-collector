@@ -43,6 +43,7 @@ parser.add_option('-t', '--timeout', help='the maxtimeout that the probe is allo
 parser.add_option('-x', '--summaries', help='upload and read data summaries', dest='summary', default=True, action='store')
 parser.add_option('-a', '--allowedEvents', help='The allowedEvents', dest='allowedEvents', default=False, action='store')
 parser.add_option('-A', '--allowedMQEvents', help='The allowedMQEvents', dest='allowedMQEvents', default=False, action='store')
+parser.add_option('-M', '--maxMQmessageSize', help='The max MQ message size allowed', dest='maxMQmessageSize', default=False, action='store')
 #Added support for SSL cert and key connection to the remote hosts
 parser.add_option('-c', '--cert', help='Path to the certificate', dest='cert', default='/etc/grid-security/rsv/rsvcert.pem', action='store')
 parser.add_option('-o', '--certkey', help='Path to the certificate key', dest='certkey', default='/etc/grid-security/rsv/rsvkey.pem', action='store')
@@ -56,7 +57,7 @@ class EsmondUploader(object):
     def add2log(self, log):
         print strftime("%a, %d %b %Y %H:%M:%S", localtime()), str(log)
     
-    def __init__(self,verbose,start,end,connect,username=None,key=None, goc=None, allowedEvents='packet-loss-rate', cert=None, certkey=None, dq=None, tmp='/tmp/rsv-perfsonar/', allowedMQEvents='packet-loss-rate'):
+    def __init__(self,verbose,start,end,connect,username=None,key=None, goc=None, allowedEvents='packet-loss-rate', cert=None, certkey=None, dq=None, tmp='/tmp/rsv-perfsonar/', allowedMQEvents='packet-loss-rate', maxMQmessageSize=10000):
         # Filter variables
         filters.verbose = verbose
         #filters.verbose = True 
@@ -95,6 +96,7 @@ class EsmondUploader(object):
             self.allowedMQEvents = allowedMQEvents.split(',')
         else:
             self.allowedMQEvents = allowedEvents
+        self.maxMQmessageSize = maxMQmessageSize
         # In general not use SSL for contacting the perfosnar hosts
         self.useSSL = False
         #Code to allow publishing data to the mq
@@ -108,7 +110,8 @@ class EsmondUploader(object):
                 
     # Publish summaries to Mq
     def publishSToMq(self, arguments, event_types, summaries, summaries_data):
-        size_limit = 10000000
+        # the max size limit in KB but python expects it in bytes
+        size_limit = self.maxMQmessageSize * 1000
         for event in summaries_data.keys():
             if not summaries_data[event]:
                 continue

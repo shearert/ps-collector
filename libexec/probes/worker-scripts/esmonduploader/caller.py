@@ -15,7 +15,7 @@ except Exception as err:
 caller = EsmondUploader(verbose=False,start=int(opts.start),end=int(opts.end),
                         connect=opts.url, username=opts.username, key=opts.key, 
                         goc=opts.goc, allowedEvents=opts.allowedEvents,
-                        cert=opts.cert, certkey=opts.certkey, dq=opts.dq, tmp=opts.tmp)
+                        cert=opts.cert, certkey=opts.certkey, dq=opts.dq, tmp=opts.tmp, allowedMQEvents=opts.allowedMQEvents, maxMQmessageSize=int(opts.maxMQmessageSize))
 
 def str2bool(word):
   return word.lower() in ("true")
@@ -23,7 +23,8 @@ def str2bool(word):
 def get_post():
     try:
         caller.getData(str2bool(opts.disp), str2bool(opts.summary))
-    except Exception as err:
+    except Exception, err:
+        print Exception, err
         print "ERROR:! Unsuccessful! Exception: \"%s\" of type: \"%s\" was thrown! Quitting out." % (err,type(err))
         sys.exit(1)
     else:

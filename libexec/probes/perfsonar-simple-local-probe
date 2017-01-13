@@ -37,6 +37,7 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
         self.summaries = False
         self.allowedEvents = "packet-loss-rate, throughput, packet-trace, packet-retransmits, histogram-owdelay, packet-count-sent,packet-count-lost"
         self.allowedMQEvents = self.allowedEvents
+        self.maxMQmessageSize = 10000
         self.directoryqueue = None
         self.tmpdirectory = '/tmp/rsv-perfsonar/'
         # Add the options so the parsing knows what to expect
@@ -54,6 +55,7 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
         self.addopt("", "allowedMQEvents=", "--allowedMQEvents a list with the allowed event types")
         self.addopt("", 'directoryqueue=', "--directoryqueue a dir for stompctl")
         self.addopt("", 'tmpdirectory=', "--tmpdirectory a directory to store temporary timestamps must be read/writebl by rsv")
+        self.addopt("", 'mq-max-message-size=', "--mq-max-message-size the size in KB of the biggest message allowed in the Mq")
 
     def parseopt(self):
         """parse options specific to network monitroing probe and return options, optlist and reminder to
@@ -88,15 +90,21 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
                 self.allowedEvents = arg.replace(" ", '')
             elif opt =='--allowedMQEvents':
                 self.allowedMQEvents = arg.replace(" ", '')
+            elif opt =='mq-max-message-size':
+                self.self.maxMQmessageSize = arg
             if self.host == self.localhost:
                 self.is_local = True
             else:
                 self.is_local = False
+        # If alloedMQEvents is not defined in the opts use allowedEvents
+        if '--allowedMQEvents' not in optlist:
+            self.allowedMQEvents = self.allowedEvents
+        print options
         return options, optlist, remainder
 
     def runCallerScript(self):
-        cmd = "source ./esmondCaller.sh %s %d %s %s %s %s %s %s %s %s %s %s %s %s" % (self.host, int(self.start), 
-                                                                       self.username, self.key, self.goc_url, self.debug, self.soft_timeout, self.summaries, self.allowedEvents, self.x509usercert, self.x509userkey, self.directoryqueue, self.tmpdirectory, self.allowedMQEvents)
+        cmd = "source ./esmondCaller.sh %s %d %s %s %s %s %s %s %s %s %s %s %s %s %s" % (self.host, int(self.start), 
+                                                                       self.username, self.key, self.goc_url, self.debug, self.soft_timeout, self.summaries, self.allowedEvents, self.x509usercert, self.x509userkey, self.directoryqueue, self.tmpdirectory, self.allowedMQEvents, self.maxMQmessageSize)
         #self.add_message("Command call %s" % cmd)
         ec, out = rsvprobe.run_command(cmd, workdir="/usr/libexec/rsv/probes/worker-scripts")
         return out
