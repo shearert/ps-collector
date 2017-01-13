@@ -85,13 +85,13 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
                 self.directoryqueue = arg
             elif opt == '--tmpdirectory':
                 self.tmpdirectory = arg
-            elif opt =='--allowedEvents':
+            elif opt == '--allowedEvents':
                 # Replacing white spaces with nothing
                 self.allowedEvents = arg.replace(" ", '')
-            elif opt =='--allowedMQEvents':
+            elif opt == '--allowedMQEvents':
                 self.allowedMQEvents = arg.replace(" ", '')
-            elif opt =='mq-max-message-size':
-                self.self.maxMQmessageSize = arg
+            elif opt == '--mq-max-message-size':
+                self.maxMQmessageSize = arg
             if self.host == self.localhost:
                 self.is_local = True
             else:
