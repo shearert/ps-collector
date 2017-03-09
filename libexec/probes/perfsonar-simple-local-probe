@@ -99,7 +99,6 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
         # If alloedMQEvents is not defined in the opts use allowedEvents
         if '--allowedMQEvents' not in optlist:
             self.allowedMQEvents = self.allowedEvents
-        print options
         return options, optlist, remainder
 
     def runCallerScript(self):
