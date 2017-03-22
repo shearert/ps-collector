@@ -140,7 +140,7 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
            if newStart < int(self.maxstart):
                self.start = int(newStart)
            else:
-               self.add_message("previous time_start %d too old. set to maxstart: %s" % (newStart, self.maxstart) )
+               self.add_message("previous time_start %s too old. set to maxstart: %s" % (newStart, self.maxstart) )
                self.start = int(self.maxstart)
         else:
             self.add_message("No previous sucesfull run found")
