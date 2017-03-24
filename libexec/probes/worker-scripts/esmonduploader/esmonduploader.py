@@ -124,7 +124,8 @@ class EsmondUploader(object):
             msg_body = { 'meta': arguments }
             msg_body['summaries'] = summaries_data[event]
             msg = Message(body=json.dumps(msg_body), header=msg_head)
-            size_msg = sys.getsizeof(msg_body['summaries'])
+            #size_msg = sys.getsizeof(msg_body['summaries'])
+            size_msg = sys.getsizeof(json.dumps(msg_body))
             # if size of the message is larger than 10MB discarrd
             if size_msg > size_limit:
                 self.add2log("Size of message body bigger than limit, discarding")
