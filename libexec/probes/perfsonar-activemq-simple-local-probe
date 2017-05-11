@@ -10,13 +10,14 @@ class PerfsonarActiveMQSimpleProbe(PerfsonarSimpleProbe):
     """
     def __init__(self):
         PerfsonarSimpleProbe.__init__(self)
+        self.metricName= "org.osg.general.perfsonar-activemq-simple"
         metric = rsvprobe.RSVMetric("Perfsonar-Monitor",
-                                    "org.osg.general.perfsonar-activemq-simple", rsvprobe.RSVMetric.STATUS)
+                                    self.metricName, rsvprobe.RSVMetric.STATUS)
         self.supported_metrics = [metric]
 
     def runCallerScript(self):
-        cmd = "source ./activemquploader.sh %s %d %s %s %s %s %s %s %s %s %s %s %s %s %s" % (self.host, int(self.start), 
-                                                                       self.username, self.key, self.goc_url, self.debug, self.soft_timeout, self.summaries, self.allowedEvents, self.x509usercert, self.x509userkey, self.directoryqueue, self.tmpdirectory, self.allowedMQEvents, self.maxMQmessageSize)
+        cmd = "source ./activemquploader.sh %s %d %s %s %s %s %s %s %s %s %s %s %s %s %s %s" % (self.host, int(self.start), 
+                                                                       self.username, self.key, self.goc_url, self.debug, self.soft_timeout, self.summaries, self.allowedEvents, self.x509usercert, self.x509userkey, self.directoryqueue, self.tmpdirectory, self.allowedMQEvents, self.maxMQmessageSize, self.metricName)
         self.add_message("Command call %s" % cmd)
         ec, out = rsvprobe.run_command(cmd, workdir="/usr/libexec/rsv/probes/worker-scripts")
         return out

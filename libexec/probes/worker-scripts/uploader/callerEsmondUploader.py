@@ -38,7 +38,7 @@ def handler(signum, frame):
     sys.exit(0)
 
 # Option: Get and Post Metadata
-if opts.post:
+if True:
    # Implementing some timeout
     signal.signal(signal.SIGALRM, handler)
     signal.alarm(int(opts.timeout))

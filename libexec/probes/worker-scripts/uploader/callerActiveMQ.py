@@ -17,7 +17,8 @@ except Exception as err:
 caller = ActiveMQUploader(verbose=False,start=int(opts.start),end=int(opts.end),
                         connect=opts.url, username=opts.username, key=opts.key, 
                         goc=opts.goc, allowedEvents=opts.allowedEvents,
-                        cert=opts.cert, certkey=opts.certkey, dq=opts.dq, tempr=opts.tempr, allowedMQEvents=opts.allowedMQEvents, maxMQmessageSize=int(opts.maxMQmessageSize))
+                        cert=opts.cert, certkey=opts.certkey, dq=opts.dq, tempr=opts.tempr, allowedMQEvents=opts.allowedMQEvents, maxMQmessageSize=int(opts.maxMQmessageSize),
+                        metricName=opts.metricName)
 
 def str2bool(word):
   return word.lower() in ("true")
@@ -39,7 +40,7 @@ def handler(signum, frame):
     sys.exit(0)
 
 # Option: Get and Post Metadata
-if opts.post:
+if True:
    # Implementing some timeout
     signal.signal(signal.SIGALRM, handler)
     signal.alarm(int(opts.timeout))

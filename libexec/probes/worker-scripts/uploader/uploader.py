@@ -5,6 +5,7 @@ import json
 import warnings
 import sys
 import pika
+import ConfigParser
 from time import strftime
 from time import localtime
 
@@ -33,7 +34,6 @@ parser = OptionParser()
 parser.add_option('-d', '--disp', help='display metadata from specified url', dest='disp', default=False, action='store')
 parser.add_option('-e', '--end', help='set end time for gathering data (default is now)', dest='end', default=0)
 parser.add_option('-l', '--loop', help='include this option for looping process', dest='loop', default=False, action='store_true')
-parser.add_option('-p', '--post',  help='begin get/post from specified url', dest='post', default=False, action='store_true')
 parser.add_option('-r', '--error', help='run get/post without error handling (for debugging)', dest='err', default=False, action='store_true')
 parser.add_option('-s', '--start', help='set start time for gathering data (default is -12 hours)', dest='start', default=960)
 parser.add_option('-u', '--url', help='set url to gather data from (default is http://hcc-pki-ps02.unl.edu)', dest='url', default='http://hcc-pki-ps02.unl.edu')
@@ -51,6 +51,8 @@ parser.add_option('-o', '--certkey', help='Path to the certificate key', dest='c
 # Add support for message queue                                                                                                                                                  
 parser.add_option('-q', '--queue', help='Directory queue (path)', default=None, dest='dq', action='store')
 parser.add_option('-m','--tmp', help='Tmp directory to use for timestamps', default='/tmp/rsv-perfsonar/', dest='tempr', action='store')
+# Config file of the probe
+parser.add_option('-C','--metric', help='Metric name', default='org.osg.general-perfsonar-simple.conf', dest='metricName', action='store')
 (opts, args) = parser.parse_args()
 
 
@@ -59,7 +61,7 @@ class Uploader(object):
     def add2log(self, log):
         print strftime("%a, %d %b %Y %H:%M:%S", localtime()), str(log)
     
-    def __init__(self,verbose,start,end,connect,username=None,key=None, goc=None, allowedEvents='packet-loss-rate', cert=None, certkey=None, dq=None, tempr='/tmp/rsv-perfsonar/', allowedMQEvents='packet-loss-rate', maxMQmessageSize=10000):
+    def __init__(self,verbose,start,end,connect,username=None,key=None, goc=None, allowedEvents='packet-loss-rate', cert=None, certkey=None, dq=None, tempr='/tmp/rsv-perfsonar/', allowedMQEvents='packet-loss-rate', maxMQmessageSize=10000, metricName='org.osg.general-perfsonar-simple.conf'):
         # Filter variables
         filters.verbose = verbose
         #filters.verbose = True 
@@ -80,11 +82,20 @@ class Uploader(object):
         gfilters.time_start = int(self.time_end - 5*start)
         gfilters.time_end = self.time_end
         gfilters.input_source = connect
+        #########################                                                                                                                                                   
+        ### New Section to read directly the configuration file                                                                                                                     
+        self.metricName =  metricName
+        conf_dir = os.path.join("/", "etc", "rsv", "metrics")
+        self.configFile = os.path.join(conf_dir, metricName + ".conf")
+        self.add2log("Configuration File: %s" % self.configFile)
+        self.config = ConfigParser.RawConfigParser()
+        ##############################     
+
         # Username/Key/Location/Delay
         self.connect = connect
         self.username = username
         self.key = key
-        self.goc = goc
+        self.goc = self.readConfigFile('goc')
         self.conn = SocksSSLApiConnect("http://"+self.connect, filters)
         self.gconn = ApiConnect(self.goc, gfilters)
         self.cert = cert
@@ -92,6 +103,7 @@ class Uploader(object):
         self.tmpDir = tempr + '/'
         # Convert the allowedEvents into a list
         self.allowedEvents = allowedEvents.split(',')
+        
         # List of events that are allwoed to send via the MQ
         # If not present should be the same as allowed events
         if allowedMQEvents != None:
@@ -262,3 +274,8 @@ class Uploader(object):
     # Place holde for posting Data if it is to Esmond, ActiveMQ, RabbitMQ
     def postData(self, arguments, event_types, summaries, summaries_data, metadata_key, datapoints, summary = True, disp=False):
         pass
+
+    def readConfigFile(self, key):
+        section = self.metricName + " args"
+        ret = self.config.read(self.configFile)
+        return self.config.get(section, key)

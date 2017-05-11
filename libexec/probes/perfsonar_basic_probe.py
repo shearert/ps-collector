@@ -30,6 +30,8 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
         self.key = "fc077a6a133b22618172bbb50a1d3104a23b2050"
         # The goc_url is the url for where to upload the data
         self.goc_url = "http://osgnetds.grid.iu.edu"
+        # Add the config directory
+        self.conf_dir = os.path.join("/", "etc", "rsv", "metrics")
         self.start = 900
         self.debug = False
         self.maxstart = 43200
@@ -162,7 +164,6 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
        out = self.runCallerScript()
        reverOut = out.split('\n')
        reverOut.reverse()
-       #reverOut = reverOut.reverse()
        for line in reverOut:
            self.add_message(line)
        if 'ERROR' in out:
