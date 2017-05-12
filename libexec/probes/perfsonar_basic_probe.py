@@ -23,13 +23,6 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
                                     "org.osg.general.perfsonar-simple", rsvprobe.RSVMetric.STATUS)
         self.supported_metrics = [metric]
         self.details = "---\n"
-        # the default values
-        # username for uploading ifnormation to the goc
-        self.username = "afitz"
-        # key for uploading information to the goc
-        self.key = "fc077a6a133b22618172bbb50a1d3104a23b2050"
-        # The goc_url is the url for where to upload the data
-        self.goc_url = "http://osgnetds.grid.iu.edu"
         # Add the config directory
         self.conf_dir = os.path.join("/", "etc", "rsv", "metrics")
         self.start = 900
@@ -37,27 +30,17 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
         self.maxstart = 43200
         self.summaries = False
         self.allowedEvents = "packet-loss-rate, throughput, packet-trace, packet-retransmits, histogram-owdelay, packet-count-sent,packet-count-lost"
-        self.allowedMQEvents = self.allowedEvents
         self.soft_timeout = 1400
-        self.maxMQmessageSize = 10000
-        self.directoryqueue = None
         self.tmpdirectory = '/tmp/rsv-perfsonar/'
         # Add the options so the parsing knows what to expect
-        self.addopt("", "username=", "--username username the username for uploading data to the goc")
-        self.addopt("", "key=", "--key key the key for uploading data to the goc")
-        self.addopt("", "goc=", "--goc url the url for where to upload the data (i.e http://osgnetds.grid.iu.edu)")
         self.addopt("", "start=", "--start How back in history get data from perfsonar ndoe in secs (i.e 43200)")
         # sleep left here but not used anymore just for compatiblity 
-        self.addopt("", "sleep=", "--sleep Number of seconds to sleep at most before start running the probe (i.e 300). Actual number is random")
         self.addopt("", "debug=", "--debug True or False. For if extra debugging is needed")
         self.addopt("", "timeout=", "--timeout Seconds. A softimeout for how long the probes are allowed to run")
         self.addopt("", "summary=", "--summary True or False. Read and upload data summaries or not")
         self.addopt("", "maxstart=", "--maxstart the max number in seconds it will go in the past to retrieve information")
         self.addopt("", "allowedEvents=", "--allowedEvents a list with the allowed event types")
-        self.addopt("", "allowedMQEvents=", "--allowedMQEvents a list with the allowed event types")
-        self.addopt("", 'directoryqueue=', "--directoryqueue a dir for stompctl")
         self.addopt("", 'tmpdirectory=', "--tmpdirectory a directory to store temporary timestamps must be read/writebl by rsv")
-        self.addopt("", 'mq-max-message-size=', "--mq-max-message-size the size in KB of the biggest message allowed in the Mq")
 
     def parseopt(self):
         """parse options specific to network monitroing probe and return options, optlist and reminder to
@@ -65,16 +48,8 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
         """
         options, optlist, remainder = rsvprobe.RSVProbe.parseopt(self)
         for opt, arg in options:
-            if opt == '--username':
-                self.username = arg
-            elif opt == '--key':
-                self.key = arg
-            elif opt == '--goc':
-                self.goc_url = arg
-            elif opt == '--start':
+            if opt == '--start':
                 self.start = arg
-            elif opt == '--sleep':
-                self.sleep = arg
             elif opt == '--debug':
                 self.debug = arg
             elif opt == '--timeout':
@@ -83,29 +58,16 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
                 self.summaries = arg
             elif opt == '--maxstart':
                 self.maxstart = arg
-            elif opt == '--directoryqueue':
-                self.directoryqueue = arg
             elif opt == '--tmpdirectory':
                 self.tmpdirectory = arg
             elif opt == '--allowedEvents':
                 # Replacing white spaces with nothing
                 self.allowedEvents = arg.replace(" ", '')
-            elif opt == '--allowedMQEvents':
-                self.allowedMQEvents = arg.replace(" ", '')
-            elif opt == '--mq-max-message-size':
-                self.maxMQmessageSize = arg
             if self.host == self.localhost:
                 self.is_local = True
             else:
                 self.is_local = False
-        # If alloedMQEvents is not defined in the opts use allowedEvents
-        if '--allowedMQEvents' not in optlist:
-            self.allowedMQEvents = self.allowedEvents
-        print options
         return options, optlist, remainder
-
-    def runCallerScript(self):
-        pass
 
     def ReadTimeStampFile(self, filename):
         if not os.path.isfile(filename):
@@ -144,6 +106,11 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
         else:
             self.add_message("No previous sucesfull run found")
 
+    def runCallerScript(self):
+        cmd = "source ./uploader.sh %s %d %s %s" % (self.host, int(self.start), self.soft_timeout, self.metricName)
+        #self.add_message("Command call %s" % cmd)                                                                                                               
+        ec, out = rsvprobe.run_command(cmd, workdir="/usr/libexec/rsv/probes/worker-scripts")
+        return out
 
     def run(self):
        """Main routine for the probe"""

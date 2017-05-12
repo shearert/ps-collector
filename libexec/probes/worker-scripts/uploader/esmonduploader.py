@@ -1,6 +1,24 @@
 from uploader import *
+# Esmond libraries to post back to the data store
+from esmond_client.perfsonar.post import MetadataPost, EventTypePost, EventTypeBulkPost
+from esmond_client.perfsonar.post import EventTypeBulkPostWarning, EventTypePostWarning
 
 class EsmondUploader(Uploader):
+
+    def __init__(self, start = 1600, connect = 'iut2-net3.iu.edu', metricName='org.osg.general-perfsonar-simple.conf'):
+        Uploader.__init__(self, start = start, connect = connect, metricName = metricName)
+        self.username = self.readConfigFile('username')
+        self.key = self.readConfigFile('key')
+        self.goc = self.readConfigFile('goc')
+        
+        gfilters = ApiFilters()
+        # gfiltesrs and in general g* means connecting to the cassandra db at the central place ie goc                                                          
+        gfilters.verbose = False
+        gfilters.time_start = int(self.time_end - 5*start)
+        gfilters.time_end = self.time_end
+        gfilters.input_source = connect
+        self.gconn = ApiConnect(self.goc, gfilters)
+
 
     def postMetaData(self, arguments, event_types, summaries, summaries_data, metadata_key, datapoints, summary = True, disp=False):
          mp = MetadataPost(self.goc, username=self.username, api_key=self.key, **arguments)

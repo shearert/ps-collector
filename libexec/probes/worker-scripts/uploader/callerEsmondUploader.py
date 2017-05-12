@@ -13,10 +13,8 @@ except Exception as err:
   sys.exit(1)
 
 ### File that would call EsmondUploader() with specified parameters to get and post the data ###
-caller = EsmondUploader(verbose=False,start=int(opts.start),end=int(opts.end),
-                        connect=opts.url, username=opts.username, key=opts.key, 
-                        goc=opts.goc, allowedEvents=opts.allowedEvents,
-                        cert=opts.cert, certkey=opts.certkey, dq=opts.dq, tempr=opts.tempr, allowedMQEvents=opts.allowedMQEvents, maxMQmessageSize=int(opts.maxMQmessageSize))
+caller = EsmondUploader(verbose=False,start=int(opts.start),
+                        connect=opts.url, metricName=opts.metricName)
 
 def str2bool(word):
   return word.lower() in ("true")

@@ -5,6 +5,26 @@ from messaging.message import Message
 from messaging.queue.dqs import DQS
 
 class ActiveMQUploader(Uploader):
+    
+    def __init__(self, start = 1600, connect = 'iut2-net3.iu.edu', metricName='org.osg.general-perfsonar-simple.conf'):
+        Uploader.__init__(self, start, connect, metricName)
+        allowedMQEvents = self.readConfigFile('allowedMQEvents')
+        # List of events that are allwoed to send via the MQ                                                                                                    
+        # If not present should be the same as allowed events                                                                                                   
+        if allowedMQEvents != None:
+            self.allowedMQEvents = allowedMQEvents.split(',')
+        else:
+            self.allowedMQEvents = self.allowedEvents
+        self.maxMQmessageSize =  self.readConfigFile('mq-max-message-size')
+        #Code to allow publishing data to the mq                                                                                                                
+        self.mq = None
+        self.dq = self.readConfigFile('directoryqueue')
+        if self.dq != None and self.dq!='None':
+            try:
+                self.mq = DQS(path=self.dq)
+            except Exception as e:
+                self.add2log("Unable to create dirq %s, exception was %s, " % (self.dq, e))
+
 
     # Publish summaries to Mq
     def publishSToMq(self, arguments, event_types, summaries, summaries_data):
@@ -77,7 +97,9 @@ class ActiveMQUploader(Uploader):
             except Exception as e:
                 self.add2log("Failed to add message to mq %s, exception was %s" % (self.dq, e))
 
-    def postData(self, arguments, event_types, summaries, summaries_data, metadata_key, datapoints, summary = True, disp=False):
+    def postData(self, arguments, event_types, summaries, summaries_data, metadata_key, datapoints):
+        summary= self.summary
+        disp = self.debug
         lenght_post = -1
         for event_type in datapoints.keys():
             if len(datapoints[event_type])>lenght_post:

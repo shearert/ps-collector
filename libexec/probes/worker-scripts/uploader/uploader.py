@@ -4,7 +4,6 @@ import inspect
 import json
 import warnings
 import sys
-import pika
 import ConfigParser
 from time import strftime
 from time import localtime
@@ -12,56 +11,31 @@ from time import localtime
 # Using the esmond_client instead of the rpm
 from esmond_client.perfsonar.query import ApiFilters
 from esmond_client.perfsonar.query import ApiConnect
-from esmond_client.perfsonar.post import MetadataPost, EventTypePost, EventTypeBulkPost
-from esmond_client.perfsonar.post import EventTypeBulkPostWarning, EventTypePostWarning
 
 # New module with socks5 OR SSL connection that inherits ApiConnect
 from SocksSSLApiConnect import SocksSSLApiConnect
 from SSLNodeInfo import EventTypeSSL
 from SSLNodeInfo import SummarySSL
 
-from optparse import OptionParser
-
-from messaging.message import Message
-from messaging.queue.dqs import DQS
-
 # Set filter object
 filters = ApiFilters()
-gfilters = ApiFilters()
-
-# Set command line options
-parser = OptionParser()
-parser.add_option('-d', '--disp', help='display metadata from specified url', dest='disp', default=False, action='store')
-parser.add_option('-e', '--end', help='set end time for gathering data (default is now)', dest='end', default=0)
-parser.add_option('-l', '--loop', help='include this option for looping process', dest='loop', default=False, action='store_true')
-parser.add_option('-r', '--error', help='run get/post without error handling (for debugging)', dest='err', default=False, action='store_true')
-parser.add_option('-s', '--start', help='set start time for gathering data (default is -12 hours)', dest='start', default=960)
-parser.add_option('-u', '--url', help='set url to gather data from (default is http://hcc-pki-ps02.unl.edu)', dest='url', default='http://hcc-pki-ps02.unl.edu')
-parser.add_option('-w', '--user', help='the username to upload the information to the GOC', dest='username', default='afitz', action='store')
-parser.add_option('-k', '--key', help='the key to upload the information to the goc', dest='key', default='fc077a6a133b22618172bbb50a1d3104a23b2050', action='store')
-parser.add_option('-g', '--goc', help='the goc address to upload the information to', dest='goc', default='http://osgnetds.grid.iu.edu', action='store')
-parser.add_option('-t', '--timeout', help='the maxtimeout that the probe is allowed to run in secs', dest='timeout', default=1000, action='store')
-parser.add_option('-x', '--summaries', help='upload and read data summaries', dest='summary', default=True, action='store')
-parser.add_option('-a', '--allowedEvents', help='The allowedEvents', dest='allowedEvents', default=False, action='store')
-parser.add_option('-A', '--allowedMQEvents', help='The allowedMQEvents', dest='allowedMQEvents', default=False, action='store')
-parser.add_option('-M', '--maxMQmessageSize', help='The max MQ message size allowed', dest='maxMQmessageSize', default=False, action='store')
-#Added support for SSL cert and key connection to the remote hosts                                                                                                                
-parser.add_option('-c', '--cert', help='Path to the certificate', dest='cert', default='/etc/grid-security/rsv/rsvcert.pem', action='store')
-parser.add_option('-o', '--certkey', help='Path to the certificate key', dest='certkey', default='/etc/grid-security/rsv/rsvkey.pem', action='store')
-# Add support for message queue                                                                                                                                                  
-parser.add_option('-q', '--queue', help='Directory queue (path)', default=None, dest='dq', action='store')
-parser.add_option('-m','--tmp', help='Tmp directory to use for timestamps', default='/tmp/rsv-perfsonar/', dest='tempr', action='store')
-# Config file of the probe
-parser.add_option('-C','--metric', help='Metric name', default='org.osg.general-perfsonar-simple.conf', dest='metricName', action='store')
-(opts, args) = parser.parse_args()
-
 
 class Uploader(object):
 
     def add2log(self, log):
         print strftime("%a, %d %b %Y %H:%M:%S", localtime()), str(log)
     
-    def __init__(self,verbose,start,end,connect,username=None,key=None, goc=None, allowedEvents='packet-loss-rate', cert=None, certkey=None, dq=None, tempr='/tmp/rsv-perfsonar/', allowedMQEvents='packet-loss-rate', maxMQmessageSize=10000, metricName='org.osg.general-perfsonar-simple.conf'):
+    def __init__(self, start = 1600, connect = 'iut2-net3.iu.edu', metricName='org.osg.general-perfsonar-simple.conf'):
+        ########################################
+        ### New Section to read directly the configuration file                                                                     
+        self.metricName =  metricName
+        conf_dir = os.path.join("/", "etc", "rsv", "metrics")
+        self.configFile = os.path.join(conf_dir, metricName + ".conf")
+        self.add2log("Configuration File: %s" % self.configFile)
+        self.config = ConfigParser.RawConfigParser()
+        ########################################        
+        self.debug = self.str2bool(self.readConfigFile('debug'))
+        verbose = self.debug
         # Filter variables
         filters.verbose = verbose
         #filters.verbose = True 
@@ -77,54 +51,26 @@ class Uploader(object):
         #filterDates = (strftime("%a, %d %b %Y %H:%M:%S ", time.gmtime(filters.time_start)))
         self.add2log("Data interval is from %s to %s" %filterDates)
         self.add2log("Metada interval is from %s to now" % (filters.time_start))
-        # gfiltesrs and in general g* means connecting to the cassandra db at the central place ie goc
-        gfilters.verbose = False        
-        gfilters.time_start = int(self.time_end - 5*start)
-        gfilters.time_end = self.time_end
-        gfilters.input_source = connect
-        #########################                                                                                                                                                   
-        ### New Section to read directly the configuration file                                                                                                                     
-        self.metricName =  metricName
-        conf_dir = os.path.join("/", "etc", "rsv", "metrics")
-        self.configFile = os.path.join(conf_dir, metricName + ".conf")
-        self.add2log("Configuration File: %s" % self.configFile)
-        self.config = ConfigParser.RawConfigParser()
-        ##############################     
-
-        # Username/Key/Location/Delay
+        # Connection info to the perfsonar remote host that the data is gathered from.
         self.connect = connect
-        self.username = username
-        self.key = key
-        self.goc = self.readConfigFile('goc')
         self.conn = SocksSSLApiConnect("http://"+self.connect, filters)
-        self.gconn = ApiConnect(self.goc, gfilters)
-        self.cert = cert
-        self.certkey = certkey
-        self.tmpDir = tempr + '/'
+        self.cert = self.readConfigFile('usercert')
+        self.certkey = self.readConfigFile('userkey')
+        # The tmp dir structure is: tmp/metricName/host/metadatafiles
+        self.tmpDir = os.path.join(self.readConfigFile('tmpdirectory'), self.metricName, self.connect + '/')
         # Convert the allowedEvents into a list
+        allowedEvents = self.readConfigFile('allowedEvents')
         self.allowedEvents = allowedEvents.split(',')
-        
-        # List of events that are allwoed to send via the MQ
-        # If not present should be the same as allowed events
-        if allowedMQEvents != None:
-            self.allowedMQEvents = allowedMQEvents.split(',')
-        else:
-            self.allowedMQEvents = allowedEvents
-        self.maxMQmessageSize = maxMQmessageSize
-        # In general not use SSL for contacting the perfosnar hosts
         self.useSSL = False
-        #Code to allow publishing data to the mq                                                                                                                                   
-        self.mq = None
-        self.dq = dq
-        if self.dq != None and self.dq!='None':
-            try:
-                self.mq = DQS(path=self.dq)
-            except Exception as e:
-                self.add2log("Unable to create dirq %s, exception was %s, " % (self.dq, e))
+
+        self.summary = self.str2bool(self.readConfigFile('summary'))
                 
     # Get Data
-    def getData(self, disp=False, summary=True):
+    def getData(self):
+        disp = self.debug
         self.add2log("Only reading data for event types: %s" % (str(self.allowedEvents)))
+        summary = self.summary
+        disp = self.debug
         if summary:
             self.add2log("Reading Summaries")
         else:
@@ -133,7 +79,7 @@ class Uploader(object):
         try:
             #Test to see if https connection is succesfull
             md = metadata.next()
-            self.readMetaData(md, disp, summary)
+            self.readMetaData(md)
         except Exception as e:
             #Test to see if https connection is sucesful
             self.add2log("Unable to connect to %s, exception was %s, trying SSL" % ("http://"+self.connect, e))
@@ -145,10 +91,12 @@ class Uploader(object):
             except Exception as e:
                 raise Exception("Unable to connect to %s, exception was %s, " % ("https://"+self.connect, e))
         for md in metadata:
-            self.readMetaData(md, disp, summary)
+            self.readMetaData(md)
 
     # Md is a metadata object of query
-    def readMetaData(self, md, disp=False, summary=True):
+    def readMetaData(self, md):
+        disp = self.debug
+        summary = self.summary
         arguments = {}
         # Building the arguments for the post
         arguments = {
@@ -239,12 +187,13 @@ class Uploader(object):
                 datapointSample[eventype] = tup[1]
         self.add2log("Sample of the data being posted %s" % datapointSample)
         try:
-            self.postData(arguments, event_types, summaries, summaries_data, metadata_key, datapoints, summary, disp)
+            self.postData(arguments, event_types, summaries, summaries_data, metadata_key, datapoints)
         except Exception as e:
-            raise Exception("Unable to post to %s, because exception %s. Check postgresql and cassandra services are up. Then check user and key are ok "  %(self.goc, e))
+            raise Exception("Unable to post because exception: %s"  % e)
 
     # Experimental function to try to recover from missing packet-count-sent or packet-count-lost data
-    def getMissingData(self, timestamp, metadata_key, event_type, disp=False):
+    def getMissingData(self, timestamp, metadata_key, event_type):
+        disp = self.debug
         filtersEsp = ApiFilters()
         filtersEsp.verbose = disp
         filtersEsp.metadata_key = metadata_key
@@ -272,10 +221,13 @@ class Uploader(object):
         return datapoints
                 
     # Place holde for posting Data if it is to Esmond, ActiveMQ, RabbitMQ
-    def postData(self, arguments, event_types, summaries, summaries_data, metadata_key, datapoints, summary = True, disp=False):
+    def postData(self, arguments, event_types, summaries, summaries_data, metadata_key, datapoints):
         pass
 
     def readConfigFile(self, key):
         section = self.metricName + " args"
         ret = self.config.read(self.configFile)
         return self.config.get(section, key)
+
+    def str2bool(self,word):
+        return word.lower() in ("true")

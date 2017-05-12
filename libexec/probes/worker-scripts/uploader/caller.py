@@ -8,24 +8,33 @@ from optparse import OptionParser
 
 try:
   from activemquploader import *
+  from esmonduploader import *
 except Exception as err:
-  print "ERROR:! Importing esmond libraries! Exception: \"%s\" of type: \"%s\" was thrown! Quitting out." % (err,type(err)) 
+  print "ERROR:! Importing libraries! Exception: \"%s\" of type: \"%s\" was thrown! Quitting out." % (err,type(err)) 
   sys.exit(1)
 
+# Set command line options                                                                                                                                     
+parser = OptionParser()
+parser.add_option('-s', '--start', help='set start time for gathering data (default is -12 hours)', dest='start', default=960)
+parser.add_option('-u', '--url', help='set url to gather data from (default is http://hcc-pki-ps02.unl.edu)', dest='url', default='http://hcc-pki-ps02.unl.edu')
+parser.add_option('-t', '--timeout', help='the maxtimeout that the probe is allowed to run in secs', dest='timeout', default=1000, action='store')
+# Name of the metric                                                                                                                                      
+parser.add_option('-C','--metric', help='Metric name', default='org.osg.general-perfsonar-simple', dest='metricName', action='store')
+(opts, args) = parser.parse_args()
 
-### File that would call EsmondUploader() with specified parameters to get and post the data ###
-caller = ActiveMQUploader(verbose=False,start=int(opts.start),end=int(opts.end),
-                        connect=opts.url, username=opts.username, key=opts.key, 
-                        goc=opts.goc, allowedEvents=opts.allowedEvents,
-                        cert=opts.cert, certkey=opts.certkey, dq=opts.dq, tempr=opts.tempr, allowedMQEvents=opts.allowedMQEvents, maxMQmessageSize=int(opts.maxMQmessageSize),
-                        metricName=opts.metricName)
-
-def str2bool(word):
-  return word.lower() in ("true")
+caller = None
+metricName = opts.metricName
+if metricName == 'org.osg.general.perfsonar-activemq-simple':
+  caller = ActiveMQUploader(start=int(opts.start), connect=opts.url, metricName=metricName)
+elif metricName == 'org.osg.general.perfsonar-simple':
+  caller = EsmondUploader(start=int(opts.start), connect=opts.url, metricName=metricName)
+else:
+  print "ERROR: metric not supporred"
+  
 
 def get_post():
     try:
-        caller.getData(str2bool(opts.disp), str2bool(opts.summary))
+        caller.getData()
     except Exception, err:
         print Exception, err
         print "ERROR:! Unsuccessful! Exception: \"%s\" of type: \"%s\" was thrown! Quitting out." % (err,type(err))
