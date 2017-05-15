@@ -43,6 +43,12 @@ class NetworkMonitoringLocalProbe(rsvprobe.RSVProbe):
         self.meshlist = []
         self.super_mesh = ""
         self.nodesIP = []
+        
+        ### Added support for multiple metrics
+        self.dummyMetrics = ['org.osg.general.perfsonar-activemq-simple', 'org.osg.general.perfsonar-simple']
+        for metrics_num in range(0, 3):
+            metric_opt = "dmetric%d=" % metrics_num
+            self.addopt("", metric_opt, "--dmetricX metric name (ex. --dmetric0 org.osg.general.osg-version)") 
 
     # Returns a list of ip addres that the hostname is associated with ipv4/ipv6
     def hostnameToIP(self, hostname):
@@ -112,6 +118,9 @@ class NetworkMonitoringLocalProbe(rsvprobe.RSVProbe):
                     self.meshlist.append(arg)
             if 'super' in opt:
                 self.super_mesh = arg
+            elif 'dmetric' in opt:
+                if arg not in self.dummyMetrics:
+                    self.dummyMetrics.append(arg)
             if self.host == self.localhost:
                 self.is_local = True
             else:
@@ -119,35 +128,34 @@ class NetworkMonitoringLocalProbe(rsvprobe.RSVProbe):
         return options, optlist, remainder
 
     # Enables a dummy probe for each node in nodes
-    def enableDummyProbe(self, nodes):
+    def enableDummyProbe(self, nodes, metric='org.osg.general.perfsonar-simple'):
         for node in nodes:
-            cmd = "rsv-control --enable --host %s org.osg.general.perfsonar-simple" % (node)
+            cmd = "rsv-control --enable --host %s %s" % (node, metric)
             ec, out = rsvprobe.run_command(cmd)
             # make a warning if the dummy metric failed
             result = out.split("\n")
             if 'ERROR' in result:
                 self.add_warning("Failed to enable probe failed for node: %s" % (node), exit_code=0)
-            cmd = "rsv-control --on --host %s org.osg.general.perfsonar-simple" % (node)
+            cmd = "rsv-control --on --host %s %s" % (node, metric)
             ec, out = rsvprobe.run_command(cmd)
             result = out.split("\n")
             if 'ERROR' in result:
-                self.add_warning("Failed to turn on probe failed for node: %s" % (node), exit_code=0)
+                self.add_warning("Failed to turn on probe failed for node: %s, metric %s" % (node, metric), exit_code=0)
     
     # Disable the dummy probe for a list of nodes
-    def disableDummyProbe(self, nodes):
+    def disableDummyProbe(self, nodes, metric='org.osg.general.perfsonar-simple'):
         for node in nodes:
-            cmd = "rsv-control --disable --host %s org.osg.general.perfsonar-simple" % (node)
+            cmd = "rsv-control --disable --host %s %s" % (node, metric)
             ec, out = rsvprobe.run_command(cmd)
-            # make a warning if the dummy metric failed                                                                                                       
+            # make a warning if the dummy metric failed                                                                                             
             result = out.split("\n")
             if 'ERROR' in result:
                 self.add_warning("Failed to enable probe failed for node: %s" % (node), exit_code=0)
-            cmd = "rsv-control --off --host %s org.osg.general.perfsonar-simple" % (node)
+            cmd = "rsv-control --off --host %s %s" % (node, metric)
             ec, out = rsvprobe.run_command(cmd)
             result = out.split("\n")
             if 'ERROR' in result:
                 self.add_warning("Failed to turn off probe failed for node: %s" % (node), exit_code=0)
-        
 
     #Returns a list of nodes that are currently enabled for a given metric
     def getListEnablednodes(self, metric):
@@ -189,16 +197,19 @@ class NetworkMonitoringLocalProbe(rsvprobe.RSVProbe):
                 #self.add_message(inst.strerror)
         if failures:
             self.return_unknown("Problem parsing a URL")
-        #Enabled nodes is the list of currently enabled nodes
-        self.add_message("Getting list of enabled nodes")
-        enabledNodes = self.getListEnablednodes('org.osg.general.perfsonar-simple')
-        self.add_message("Calculating list of enabled and disabled nodes")
-        nodesToEnable = self.getListNodesToEnable(actualNodes, enabledNodes)
-        nodesToDisable = self.getListNodesToDisable(actualNodes, enabledNodes)
-        self .add_message("Enabling nodes %s " % nodesToEnable)
-        self.enableDummyProbe(nodesToEnable)
-        self.add_message("Disabling nodes %s " % nodesToDisable)
-        self.disableDummyProbe(nodesToDisable)
+
+        for metric in self.dummyMetrics:
+            self.add_message("Proccesing metric: %s" % metric)
+            #Enabled nodes is the list of currently enabled nodes
+            self.add_message("Getting list of enabled nodes")
+            enabledNodes = self.getListEnablednodes(metric)
+            self.add_message("Calculating list of enabled and disabled nodes")
+            nodesToEnable = self.getListNodesToEnable(actualNodes, enabledNodes)
+            nodesToDisable = self.getListNodesToDisable(actualNodes, enabledNodes)
+            self .add_message("Enabling nodes %s " % nodesToEnable)
+            self.enableDummyProbe(nodesToEnable, metric)
+            self.add_message("Disabling nodes %s " % nodesToDisable)
+            self.disableDummyProbe(nodesToDisable, metric)
         self.return_ok("Everything OK")
 
 def main():
