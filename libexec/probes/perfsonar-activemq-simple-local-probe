@@ -1,0 +1,26 @@
+#!/usr/bin/python
+#import perfsonar_simple_local_probe
+#import perfsonar_basic_probe
+from perfsonar_basic_probe import *
+
+#sys.path.insert(0, '.')
+class PerfsonarActiveMQSimpleProbe(PerfsonarSimpleProbe):
+    """
+    TODO - write description of the probe
+    """
+    def __init__(self):
+        PerfsonarSimpleProbe.__init__(self)
+        self.metricName = "org.osg.general.perfsonar-activemq-simple"
+        metric = rsvprobe.RSVMetric("Perfsonar-Monitor",
+                                    self.metricName, rsvprobe.RSVMetric.STATUS)
+        self.supported_metrics = [metric]
+        self.addopt("", 'directoryqueue=', "--directoryqueue a dir for stompctl")
+        self.addopt("", 'granularity=', "--granularity the granularity of the directory quee")
+        self.addopt("", 'mq-max-message-size=', "--mq-max-message-size the size in KB of the biggest message allowed in the Mq")
+        
+def main():
+    probe = PerfsonarActiveMQSimpleProbe()
+    return probe.run()
+
+if __name__ == '__main__':
+    sys.exit(main())
