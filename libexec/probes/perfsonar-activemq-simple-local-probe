@@ -14,21 +14,9 @@ class PerfsonarActiveMQSimpleProbe(PerfsonarSimpleProbe):
         metric = rsvprobe.RSVMetric("Perfsonar-Monitor",
                                     self.metricName, rsvprobe.RSVMetric.STATUS)
         self.supported_metrics = [metric]
-        self.allowedMQEvents = self.allowedEvents
-        self.maxMQmessageSize = 10000
-        self.directoryqueue = None
         self.addopt("", 'directoryqueue=', "--directoryqueue a dir for stompctl")
+        self.addopt("", 'granularity=', "--granularity the granularity of the directory quee")
         self.addopt("", 'mq-max-message-size=', "--mq-max-message-size the size in KB of the biggest message allowed in the Mq")
-        
-    def parseopt(self):
-        options, optlist, remainder = PerfsonarSimpleProbe.parseopt(self)
-        for opt, arg in options:
-            if opt == '--directoryqueue':
-                self.directoryqueue = arg
-            elif opt == '--mq-max-message-size':
-                self.maxMQmessageSize = arg        
-                # If alloedMQEvents is not defined in the opts use allowedEvents                                                                    
-        return options, optlist, remainder
         
 def main():
     probe = PerfsonarActiveMQSimpleProbe()

@@ -12,9 +12,10 @@ class ActiveMQUploader(Uploader):
         #Code to allow publishing data to the mq                                                                                                                
         self.mq = None
         self.dq = self.readConfigFile('directoryqueue')
+        self.granularity = int(self.readConfigFile('granularity'))
         if self.dq != None and self.dq!='None':
             try:
-                self.mq = DQS(path=self.dq)
+                self.mq = DQS(path=self.dq, granularity=self.granularity)
             except Exception as e:
                 self.add2log("Unable to create dirq %s, exception was %s, " % (self.dq, e))
 
