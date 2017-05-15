@@ -17,8 +17,6 @@ class PerfsonarActiveMQSimpleProbe(PerfsonarSimpleProbe):
         self.allowedMQEvents = self.allowedEvents
         self.maxMQmessageSize = 10000
         self.directoryqueue = None
-        # These ones are for the active MQ probe                                                  
-        self.addopt("", "allowedMQEvents=", "--allowedMQEvents a list with the allowed event types")
         self.addopt("", 'directoryqueue=', "--directoryqueue a dir for stompctl")
         self.addopt("", 'mq-max-message-size=', "--mq-max-message-size the size in KB of the biggest message allowed in the Mq")
         
@@ -27,13 +25,9 @@ class PerfsonarActiveMQSimpleProbe(PerfsonarSimpleProbe):
         for opt, arg in options:
             if opt == '--directoryqueue':
                 self.directoryqueue = arg
-            elif opt == '--allowedMQEvents':
-                self.allowedMQEvents = arg.replace(" ", '')
             elif opt == '--mq-max-message-size':
                 self.maxMQmessageSize = arg        
-                # If alloedMQEvents is not defined in the opts use allowedEvents                                                                                                                
-        if '--allowedMQEvents' not in optlist:
-            self.allowedMQEvents = self.allowedEvents
+                # If alloedMQEvents is not defined in the opts use allowedEvents                                                                    
         return options, optlist, remainder
         
 def main():

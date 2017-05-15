@@ -8,13 +8,6 @@ class ActiveMQUploader(Uploader):
     
     def __init__(self, start = 1600, connect = 'iut2-net3.iu.edu', metricName='org.osg.general-perfsonar-simple.conf'):
         Uploader.__init__(self, start, connect, metricName)
-        allowedMQEvents = self.readConfigFile('allowedMQEvents')
-        # List of events that are allwoed to send via the MQ                                                                                                    
-        # If not present should be the same as allowed events                                                                                                   
-        if allowedMQEvents != None:
-            self.allowedMQEvents = allowedMQEvents.split(',')
-        else:
-            self.allowedMQEvents = self.allowedEvents
         self.maxMQmessageSize =  self.readConfigFile('mq-max-message-size')
         #Code to allow publishing data to the mq                                                                                                                
         self.mq = None
@@ -66,7 +59,7 @@ class ActiveMQUploader(Uploader):
     def publishRToMq(self, arguments, event_types, datapoints):
         for event in datapoints.keys():
             # filter events for mq (must be subset of the probe's filter)
-            if event not in self.allowedMQEvents:
+            if event not in self.allowedEvents:
                 continue
             # skip events that have no datapoints 
             if not datapoints[event]:
