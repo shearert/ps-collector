@@ -1,0 +1,31 @@
+#!/usr/bin/python
+#import perfsonar_simple_local_probe
+#import perfsonar_basic_probe
+from perfsonar_basic_probe import *
+
+#sys.path.insert(0, '.')
+class PerfsonarRabbitMQSimpleProbe(PerfsonarSimpleProbe):
+    """
+    TODO - write description of the probe
+    """
+    def __init__(self):
+        PerfsonarSimpleProbe.__init__(self)
+        self.metricName = "org.osg.general.perfsonar-rabbitmq-simple"
+        metric = rsvprobe.RSVMetric("Perfsonar-Monitor",
+                                    self.metricName, rsvprobe.RSVMetric.STATUS)
+        self.supported_metrics = [metric]
+        self.addopt("", 'mq-max-message-size=', "--mq-max-message-size the size in KB of the biggest message allowed in the Mq")
+        self.addopt("", 'username=', "--username for the RabbitMq")
+        self.addopt("", 'password=', "--password for the Rabbit Mq")
+        self.addopt("", 'rabbit_host=', "--host  hostname where the Rabbit Mq is hosted")
+        self.addopt("", 'virtual_host=',"--virtual host of the rabbit mq")
+        self.addopt("", 'queue=', "--queue for the rabbit mq")
+        self.addopt("", 'exchange=', "--exchange for the rabbit mq")
+        self.addopt("", 'routing_key=', "--routing_key for the rabbit mq")
+        
+def main():
+    probe = PerfsonarRabbitMQSimpleProbe()
+    return probe.run()
+
+if __name__ == '__main__':
+    sys.exit(main())

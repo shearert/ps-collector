@@ -14,6 +14,7 @@ except ImportError:
 
 # The maximun number of meshes allowed
 max_mesh = 100
+standard_metrics = ['org.osg.general.perfsonar-activemq-simple', 'org.osg.general.perfsonar-rabbitmq-simple', 'org.osg.general.perfsonar-simple']
 
 sys.path.insert(0, '.')
 
@@ -45,7 +46,7 @@ class NetworkMonitoringLocalProbe(rsvprobe.RSVProbe):
         self.nodesIP = []
         
         ### Added support for multiple metrics
-        self.dummyMetrics = ['org.osg.general.perfsonar-activemq-simple', 'org.osg.general.perfsonar-simple']
+        self.dummyMetrics = []
         for metrics_num in range(0, 3):
             metric_opt = "dmetric%d=" % metrics_num
             self.addopt("", metric_opt, "--dmetricX metric name (ex. --dmetric0 org.osg.general.osg-version)") 
@@ -210,6 +211,15 @@ class NetworkMonitoringLocalProbe(rsvprobe.RSVProbe):
             self.enableDummyProbe(nodesToEnable, metric)
             self.add_message("Disabling nodes %s " % nodesToDisable)
             self.disableDummyProbe(nodesToDisable, metric)
+
+        # This step is to disable the metrics that are no longer present
+        for metric in standard_metrics:
+            if metric not in self.dummyMetrics:
+            # So if a metric is no longer present turn off all of the corresponding probes
+                self.add_message("Disabling nodes for metric %s: cause the metric is no longer in the metrics conf file " % metric)
+                nodesToDisable = self.getListEnablednodes(metric)
+                self.add_message("Disabling nodes %s " % nodesToDisable)
+                self.disableDummyProbe(nodesToDisable, metric)
         self.return_ok("Everything OK")
 
 def main():

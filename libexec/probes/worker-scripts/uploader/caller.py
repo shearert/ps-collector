@@ -9,6 +9,7 @@ from optparse import OptionParser
 try:
   from activemquploader import *
   from esmonduploader import *
+  from rabbitmquploader import *
 except Exception as err:
   print "ERROR:! Importing libraries! Exception: \"%s\" of type: \"%s\" was thrown! Quitting out." % (err,type(err)) 
   sys.exit(1)
@@ -28,6 +29,8 @@ if metricName == 'org.osg.general.perfsonar-activemq-simple':
   caller = ActiveMQUploader(start=int(opts.start), connect=opts.url, metricName=metricName)
 elif metricName == 'org.osg.general.perfsonar-simple':
   caller = EsmondUploader(start=int(opts.start), connect=opts.url, metricName=metricName)
+elif metricName == 'org.osg.general.perfsonar-rabbitmq-simple':
+  caller = RabbitMQUploader(start=int(opts.start), connect=opts.url, metricName=metricName)
 else:
   print "ERROR: metric not supporred"
   

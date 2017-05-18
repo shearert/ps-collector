@@ -87,7 +87,7 @@ class Uploader(object):
                 metadata = self.conn.get_metadata(cert=self.cert, key=self.certkey)
                 md = metadata.next()
                 self.useSSL = True
-                self.readMetaData(md, disp, summary)
+                self.readMetaData(md)
             except Exception as e:
                 raise Exception("Unable to connect to %s, exception was %s, " % ("https://"+self.connect, e))
         for md in metadata:
@@ -230,8 +230,8 @@ class Uploader(object):
         try:
             return self.config.get(section, key)
         except ConfigParser.NoOptionError:
-            self.add2.log("ERROR: config knob %s not found in file: %s"% (self.name, self.configFile))
-            raise Exception("ERROR: config knob %s not found in file: %s"% (self.name, self.configFile))
+            self.add2log("ERROR: config knob %s not found in file: %s"% (self.key, self.configFile))
+            raise Exception("ERROR: config knob %s not found in file: %s"% (self.key, self.configFile))
             
 
     def str2bool(self,word):
