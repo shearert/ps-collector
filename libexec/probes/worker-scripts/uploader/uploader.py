@@ -87,7 +87,7 @@ class Uploader(object):
                 metadata = self.conn.get_metadata(cert=self.cert, key=self.certkey)
                 md = metadata.next()
                 self.useSSL = True
-                self.readMetaData(md, disp, summary)
+                self.readMetaData(md)
             except Exception as e:
                 raise Exception("Unable to connect to %s, exception was %s, " % ("https://"+self.connect, e))
         for md in metadata:
