@@ -108,5 +108,5 @@ class ActiveMQUploader(Uploader):
                 f = open(self.tmpDir + metadata_key, 'w')
                 f.write(json.dumps(self.time_starts))
                 f.close()
-                self.add2log("posting NEW METADATA/DATA to esmondmq %s" % metadata_key)
+                self.add2log("posting NEW METADATA/DATA to Cern Active MQ %s" % metadata_key)
                 
