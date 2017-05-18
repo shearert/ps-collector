@@ -77,6 +77,7 @@ class ActiveMQUploader(Uploader):
         summary= self.summary
         disp = self.debug
         lenght_post = -1
+        arguments['org_metadata_key'] = metadata_key
         for event_type in datapoints.keys():
             if len(datapoints[event_type])>lenght_post:
                 lenght_post = len(datapoints[event_type])
