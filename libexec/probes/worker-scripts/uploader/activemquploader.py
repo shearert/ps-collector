@@ -1,6 +1,7 @@
 from uploader import *
 
-# Need to push to cern message queue                                                                                                                                                
+# Need to push to cern message queue                                                                                                                
+                               
 from messaging.message import Message
 from messaging.queue.dqs import DQS
 
@@ -36,16 +37,7 @@ class ActiveMQUploader(Uploader):
             msg_body = { 'meta': arguments }
             msg_body['summaries'] = summaries_data[event]
             msg = Message(body=json.dumps(msg_body), header=msg_head)
-            ######### Added to publish to the rabbit Mq
-            #credentials = pika.PlainCredentials('emfajard', 'TbE^ gTdfg$')
-            #parameters = pika.ConnectionParameters(host='event-itb.grid.iu.edu',virtual_host='osg-nma',credentials=credentials)
-            #connection = pika.BlockingConnection(parameters)
-            #channel = connection.channel()
-            #channel.queue_declare(queue='osg-nma-q',durable=True)
-            #channel.basic_publish(exchange='',routing_key='osg-nma-q',body=json.dumps(msg_body))
-            #channel.close()
-            ###########
-            size_msg = sys.getsizeof(msg_body['summaries'])
+            size_msg = sys.getsizeof(json.dumps(msg_body))
             # if size of the message is larger than 10MB discarrd
             if size_msg > size_limit:
                 self.add2log("Size of message body bigger than limit, discarding")
@@ -75,16 +67,6 @@ class ActiveMQUploader(Uploader):
             msg_body = { 'meta': arguments }
             msg_body['datapoints'] = datapoints[event]
             msg = Message(body=json.dumps(msg_body), header=msg_head)
-            
-            #### Added to publish to rabbit MQ experimental
-            #credentials = pika.PlainCredentials('emfajard', 'TbE^ gTdfg$')
-            #parameters = pika.ConnectionParameters(host='event-itb.grid.iu.edu',virtual_host='osg-nma',credentials=credentials)
-            #connection = pika.BlockingConnection(parameters)
-            #channel = connection.channel()
-            #channel.queue_declare(queue='osg-nma-q',durable=True)
-            #channel.basic_publish(exchange='',routing_key='osg-nma-q',body=json.dumps(msg_body))
-            #channel.close()
-            ##### 
             # add to mq
             try:
                 self.mq.add_message(msg)
