@@ -160,7 +160,7 @@ class NetworkMonitoringLocalProbe(rsvprobe.RSVProbe):
 
     #Returns a list of nodes that are currently enabled for a given metric
     def getListEnablednodes(self, metric):
-        cmd = "rsv-control --list --wide %s | grep host | awk '{print $5}'" % (metric)
+        cmd = "rsv-control --list --wide %s | grep Metric | awk '{print $5}'" % (metric)
         ec, out = rsvprobe.run_command(cmd)
         result = out.split("\n")
         return result
