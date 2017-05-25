@@ -146,6 +146,8 @@ class NetworkMonitoringLocalProbe(rsvprobe.RSVProbe):
     # Disable the dummy probe for a list of nodes
     def disableDummyProbe(self, nodes, metric='org.osg.general.perfsonar-simple'):
         for node in nodes:
+            if len(node) < 1:
+                continue                
             cmd = "rsv-control --disable --host %s %s" % (node, metric)
             ec, out = rsvprobe.run_command(cmd)
             # make a warning if the dummy metric failed                                                                                             
