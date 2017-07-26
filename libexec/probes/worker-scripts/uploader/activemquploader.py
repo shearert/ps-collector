@@ -50,6 +50,8 @@ class ActiveMQUploader(Uploader):
     
     # Publish message to Mq
     def publishRToMq(self, arguments, event_types, datapoints):
+        # the max size limit in KB but python expects it in bytes                                                                                      
+        size_limit = self.maxMQmessageSize * 1000
         for event in datapoints.keys():
             # filter events for mq (must be subset of the probe's filter)
             if event not in self.allowedEvents:
@@ -67,6 +69,11 @@ class ActiveMQUploader(Uploader):
             msg_body = { 'meta': arguments }
             msg_body['datapoints'] = datapoints[event]
             msg = Message(body=json.dumps(msg_body), header=msg_head)
+            size_msg = msg.size()
+            # if size of the message is larger than 10MB discarrd                                                                                      
+            if size_msg > size_limit:
+                self.add2log("Size of message body bigger than limit, discarding")
+                continue
             # add to mq
             try:
                 self.mq.add_message(msg)
