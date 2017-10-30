@@ -108,7 +108,7 @@ class PerfsonarSimpleProbe(rsvprobe.RSVProbe):
 
     def runCallerScript(self):
         cmd = "source ./uploader.sh %s %d %s %s" % (self.host, int(self.start), self.soft_timeout, self.metricName)
-        #self.add_message("Command call %s" % cmd)                                                                                                  
+        self.add_message("Command call %s" % cmd)                                                                                          
         ec, out = rsvprobe.run_command(cmd, workdir="/usr/libexec/rsv/probes/worker-scripts")
         return out
 
