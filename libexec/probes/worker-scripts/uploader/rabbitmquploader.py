@@ -43,7 +43,6 @@ class RabbitMQUploader(Uploader):
     def SendMessagetoMQ(self, msg_body):
         # the max size limit in KB but python expects it in bytes                                                                           
         size_limit = self.maxMQmessageSize * 1000
-        ######### Added to publish to the rabbit Mq                                                                                         
         channel = self.connection.channel()
         channel.queue_declare(queue=self.queue,durable=True)
         ch_prop = pika.BasicProperties(delivery_mode = 2) #Make message persistent
@@ -54,7 +53,6 @@ class RabbitMQUploader(Uploader):
             channel.close()
             return
         # add to mq                                                                                                                       
-       
         try:
             result = channel.basic_publish(exchange = self.exchange,
                                            routing_key = self.routing_key,
