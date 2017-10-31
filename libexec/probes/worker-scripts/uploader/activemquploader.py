@@ -36,11 +36,12 @@ class ActiveMQUploader(Uploader):
                          'destination' : '/topic/perfsonar.summary.' + event }
             msg_body = { 'meta': arguments }
             msg_body['summaries'] = summaries_data[event]
+            size_summ = self.total_size(summaries_data[event])
             msg = Message(body=json.dumps(msg_body), header=msg_head)
             size_msg = msg.size()
             #self.add2log("Message size: %s" % size_msg)
             # if size of the message is larger than 10MB discarrd                                                                          
-            if size_msg > size_limit or sys.getsizeof(json.dumps(msg_body)) > size_limit:
+            if size_msg > size_limit or sys.getsizeof(json.dumps(msg_body)) > size_limit or size_summ > size_limit:
                 self.add2log("Size of message body bigger than limit, discarding")
                 continue
             # add to mq      
