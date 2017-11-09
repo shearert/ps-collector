@@ -41,20 +41,23 @@ class RabbitMQUploader(Uploader):
             self.SendMessagetoMQ(msg_body)
 
     def SendMessagetoMQ(self, msg_body):
-        # the max size limit in KB but python expects it in bytes                                                                                            
+        # the max size limit in KB but python expects it in bytes                                                                           
         size_limit = self.maxMQmessageSize * 1000
-        ######### Added to publish to the rabbit Mq                                                                                                        
         channel = self.connection.channel()
         channel.queue_declare(queue=self.queue,durable=True)
+        ch_prop = pika.BasicProperties(delivery_mode = 2) #Make message persistent
         size_msg = sys.getsizeof(json.dumps(msg_body))
-        # if size of the message is larger than 10MB discarrd                                                                                              
+        # if size of the message is larger than 10MB discarrd                                                                             
         if size_msg > size_limit:
             self.add2log("Size of message body bigger than limit, discarding")
             channel.close()
             return
-        # add to mq                                                                                                                                        
+        # add to mq                                                                                                                       
         try:
-            result = channel.basic_publish(exchange=self.exchange,routing_key=self.routing_key,body=json.dumps(msg_body))
+            result = channel.basic_publish(exchange = self.exchange,
+                                           routing_key = self.routing_key,
+                                           body = json.dumps(msg_body), 
+                                           properties = ch_prop)
             if not result:
                 raise Exception('Exception publishing to rabbit MQ', 'Problem publishing to mq')
         except Exception as e:

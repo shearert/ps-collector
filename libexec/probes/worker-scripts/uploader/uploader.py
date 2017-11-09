@@ -43,7 +43,7 @@ class Uploader(object):
         self.time_end = int(time.time())
         self.time_start = int(self.time_end - start)
         # Filter for metadata
-        filters.time_start = int(self.time_end - 3*start)
+        filters.time_start = int(self.time_end - start)
         # Added time_end for bug that Andy found as sometime far in the future 24 hours
         filters.time_end = self.time_end + 24*60*60
         # For logging pourposes
@@ -236,3 +236,37 @@ class Uploader(object):
 
     def str2bool(self,word):
         return word.lower() in ("true")
+
+    def total_size(o, handlers={}, verbose=False):
+     """ Returns the approximate memory footprint an object and all of its contents.
+
+     Automatically finds the contents of the following builtin containers and
+     their subclasses:  tuple, list, deque, dict, set and frozenset.
+     To search other containers, add handlers to iterate over their contents:
+
+        handlers = {SomeContainerClass: iter,
+                    OtherContainerClass: OtherContainerClass.get_elements}
+ 
+     """
+     dict_handler = lambda d: chain.from_iterable(d.items())
+     all_handlers = {tuple: iter,
+                    list: iter,
+                    dict: dict_handler,
+                    set: iter,
+                    frozenset: iter,
+                   }
+     #all_handlers.update(handlers)     # user handlers take precedence
+     seen = set()                      # track which object id's have already been seen
+     default_size = sys.getsizeof(0)       # estimate sizeof object without __sizeof__
+
+     def sizeof(o):
+        if id(o) in seen:       # do not double count the same object
+            return 0
+        seen.add(id(o))
+        s = sys.getsizeof(o, default_size)
+
+        for typ, handler in all_handlers.items():
+            if isinstance(o, typ):
+                s += sum(map(sizeof, handler(o)))
+                break
+        return s
