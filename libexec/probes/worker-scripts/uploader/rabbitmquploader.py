@@ -49,16 +49,23 @@ class RabbitMQUploader(Uploader):
         if size_msg > size_limit:
             self.add2log("Size of message body bigger than limit, discarding")
             return
-        # add to mq                                                                                                                       
-        try:
-            result = self.channel.basic_publish(exchange = self.exchange,
+        # add to mq
+        tries = 0
+        N = 5
+        while(tries<N):
+            tries = tries + 1
+            try:
+                result = self.channel.basic_publish(exchange = self.exchange,
                                                 routing_key = self.routing_key,
                                                 body = json.dumps(msg_body), 
                                                 properties = self.ch_prop)
-            if not result:
-                raise Exception('Exception publishing to rabbit MQ', 'Problem publishing to mq')
-        except Exception as e:
-            self.add2log("ERROR: Failed to send message to mq, exception was %s" % (repr(e)))
+                tries = N+1
+                if not result:
+                    raise Exception('Exception publishing to rabbit MQ', 'Problem publishing to mq')
+            except Exception as e:
+                self.restartPikaConnection()
+        if tries == N:
+                self.add2log("ERROR: Failed to send message to mq, exception was %s" % (repr(e)))
 
     # Publish message to Mq
     def publishRToMq(self, arguments, event_types, datapoints):
@@ -80,6 +87,9 @@ class RabbitMQUploader(Uploader):
             msg_body['datapoints'] = datapoints[event]
             self.SendMessagetoMQ(msg_body)
             
+    def restartPikaConnection(self):
+        self.connection = pika.BlockingConnection(self.parameters)
+        self.channel = self.connection.channel()
 
     def postData(self, arguments, event_types, summaries, summaries_data, metadata_key, datapoints):
         summary= self.summary
@@ -95,8 +105,7 @@ class RabbitMQUploader(Uploader):
         # Now that we know we have data to send, actually connect upstream.
         if self.connection is None:
             try:
-                self.connection = pika.BlockingConnection(self.parameters)
-                self.channel = self.connection.channel()
+                self.restartPikaConnection()
             except Exception as e:
                 self.add2log("Unable to create channel to RabbitMQ, exception was %s" % repr(e))
                 return
