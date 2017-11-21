@@ -20,7 +20,7 @@ class RabbitMQUploader(Uploader):
             self.parameters = pika.ConnectionParameters(host=self.rabbithost,virtual_host=self.virtual_host,credentials=credentials)
             self.ch_prop = pika.BasicProperties(delivery_mode = 2) #Make message persistent
         except Exception as e:
-            self.add2log("Unable to create dirq channgel, exception was %s, " % (e))
+            self.add2log("Unable to create dirq channgel, exception was %s, " % (repr(e)))
 
 
     # Publish summaries to Mq
@@ -44,7 +44,7 @@ class RabbitMQUploader(Uploader):
     def SendMessagetoMQ(self, msg_body):
         # the max size limit in KB but python expects it in bytes                                                                           
         size_limit = self.maxMQmessageSize * 1000
-        size_msg = sys.getsizeof(json.dumps(msg_body))
+        size_msg = self.total_size(msg_body)
         # if size of the message is larger than 10MB discarrd                                                                             
         if size_msg > size_limit:
             self.add2log("Size of message body bigger than limit, discarding")
@@ -58,7 +58,7 @@ class RabbitMQUploader(Uploader):
             if not result:
                 raise Exception('Exception publishing to rabbit MQ', 'Problem publishing to mq')
         except Exception as e:
-            self.add2log("ERROR: Failed to send message to mq, exception was %s" % (e))
+            self.add2log("ERROR: Failed to send message to mq, exception was %s" % (repr(e)))
 
     # Publish message to Mq
     def publishRToMq(self, arguments, event_types, datapoints):
@@ -98,7 +98,7 @@ class RabbitMQUploader(Uploader):
                 self.connection = pika.BlockingConnection(self.parameters)
                 self.channel = self.connection.channel()
             except Exception as e:
-                self.add2log("Unable to create channel to RabbitMQ, exception was %s" % str(e))
+                self.add2log("Unable to create channel to RabbitMQ, exception was %s" % repr(e))
                 return
 
         if summaries_data:
