@@ -14,6 +14,7 @@ class RabbitMQUploader(Uploader):
         self.queue = self.readConfigFile('queue')
         self.exchange = self.readConfigFile('exchange')
         self.routing_key = self.readConfigFile('routing_key')
+        self.connection = None
         try:
             credentials = pika.PlainCredentials(self.username, self.password)
             self.parameters = pika.ConnectionParameters(host=self.rabbithost,virtual_host=self.virtual_host,credentials=credentials)
@@ -92,12 +93,13 @@ class RabbitMQUploader(Uploader):
             return
 
         # Now that we know we have data to send, actually connect upstream.
-        try:
-            self.connection = pika.BlockingConnection(self.parameters)
-            self.channel = self.connection.channel()
-        except Exception as e:
-            self.add2log("Unable to create channel to RabbitMQ, exception was %s" % str(e))
-            return
+        if self.connection is None:
+            try:
+                self.connection = pika.BlockingConnection(self.parameters)
+                self.channel = self.connection.channel()
+            except Exception as e:
+                self.add2log("Unable to create channel to RabbitMQ, exception was %s" % str(e))
+                return
 
         if summaries_data:
             self.add2log("posting new summaries")
