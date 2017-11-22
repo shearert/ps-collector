@@ -15,18 +15,17 @@ class RabbitMQUploader(Uploader):
         self.exchange = self.readConfigFile('exchange')
         self.routing_key = self.readConfigFile('routing_key')
         self.connection = None
+        self.channel = None
         try:
             credentials = pika.PlainCredentials(self.username, self.password)
             self.parameters = pika.ConnectionParameters(host=self.rabbithost,virtual_host=self.virtual_host,credentials=credentials)
             self.ch_prop = pika.BasicProperties(delivery_mode = 2) #Make message persistent
         except Exception as e:
-            self.add2log("Unable to create dirq channgel, exception was %s, " % (repr(e)))
+            self.add2log("ERROR: Unable to create dirq channgel, exception was %s, " % (repr(e)))
 
 
     # Publish summaries to Mq
     def publishSToMq(self, arguments, event_types, summaries, summaries_data):
-        # the max size limit in KB but python expects it in bytes
-        size_limit = self.maxMQmessageSize * 1000
         for event in summaries_data.keys():
             if not summaries_data[event]:
                 continue
@@ -38,7 +37,6 @@ class RabbitMQUploader(Uploader):
                          'destination' : '/topic/perfsonar.summary.' + event }
             msg_body = { 'meta': arguments }
             msg_body['summaries'] = summaries_data[event]
-            #msg = Message(body=json.dumps(msg_body), header=msg_head)
             self.SendMessagetoMQ(msg_body)
 
     def SendMessagetoMQ(self, msg_body):
@@ -50,21 +48,20 @@ class RabbitMQUploader(Uploader):
             self.add2log("Size of message body bigger than limit, discarding")
             return
         # add to mq
-        tries = 0
-        N = 5
-        while(tries<N):
-            tries = tries + 1
+        result = None
+        for tries in range(5):
             try:
                 result = self.channel.basic_publish(exchange = self.exchange,
                                                 routing_key = self.routing_key,
                                                 body = json.dumps(msg_body), 
                                                 properties = self.ch_prop)
-                tries = N+1
-                if not result:
+                break
+                if result != None:
                     raise Exception('Exception publishing to rabbit MQ', 'Problem publishing to mq')
             except Exception as e:
+                self.add2log("Restarting pika connection")
                 self.restartPikaConnection()
-        if tries == N:
+        if result == None:
                 self.add2log("ERROR: Failed to send message to mq, exception was %s" % (repr(e)))
 
     # Publish message to Mq
@@ -88,8 +85,19 @@ class RabbitMQUploader(Uploader):
             self.SendMessagetoMQ(msg_body)
             
     def restartPikaConnection(self):
+        if self.channel and self.channel.is_open:
+            try:
+                self.channel.close()
+            except Exception as e:
+                self.add2log("Failed to close the channel exception was %s" % (repr(e)))
+        if self.connection and self.connection.is_open:
+            try:
+                self.connection.close()
+            except Exception as e:
+                self.add2log("Failed to close the connection exception was %s" % (repr(e)))
         self.connection = pika.BlockingConnection(self.parameters)
         self.channel = self.connection.channel()
+
 
     def postData(self, arguments, event_types, summaries, summaries_data, metadata_key, datapoints):
         summary= self.summary
