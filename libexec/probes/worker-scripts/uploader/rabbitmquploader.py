@@ -56,8 +56,8 @@ class RabbitMQUploader(Uploader):
                                                 body = json.dumps(msg_body), 
                                                 properties = self.ch_prop)
                 break
-                if result != None:
-                    raise Exception('Exception publishing to rabbit MQ', 'Problem publishing to mq')
+                if not result:
+                    raise Exception('ERROR: Exception publishing to rabbit MQ', 'Problem publishing to mq')
             except Exception as e:
                 self.add2log("Restarting pika connection")
                 self.restartPikaConnection()
