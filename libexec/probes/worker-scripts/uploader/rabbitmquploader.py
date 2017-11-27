@@ -37,9 +37,9 @@ class RabbitMQUploader(Uploader):
                          'destination' : '/topic/perfsonar.summary.' + event }
             msg_body = { 'meta': arguments }
             msg_body['summaries'] = summaries_data[event]
-            self.SendMessagetoMQ(msg_body)
+            self.SendMessagetoMQ(msg_body, event)
 
-    def SendMessagetoMQ(self, msg_body):
+    def SendMessagetoMQ(self, msg_body, event):
         # the max size limit in KB but python expects it in bytes                                                                           
         size_limit = self.maxMQmessageSize * 1000
         size_msg = self.total_size(msg_body)
@@ -52,7 +52,7 @@ class RabbitMQUploader(Uploader):
         for tries in range(5):
             try:
                 result = self.channel.basic_publish(exchange = self.exchange,
-                                                routing_key = self.routing_key,
+                                                routing_key = 'perfsonar.raw.' + event,
                                                 body = json.dumps(msg_body), 
                                                 properties = self.ch_prop)
                 break
@@ -80,7 +80,7 @@ class RabbitMQUploader(Uploader):
                          'destination' : '/topic/perfsonar.raw.' + event}
             msg_body = { 'meta': arguments }
             msg_body['datapoints'] = datapoints[event]
-            self.SendMessagetoMQ(msg_body)
+            self.SendMessagetoMQ(msg_body, event)
             
     def restartPikaConnection(self):
         if self.channel and self.channel.is_open:
@@ -116,7 +116,7 @@ class RabbitMQUploader(Uploader):
                 self.add2log("Unable to create channel to RabbitMQ, exception was %s" % repr(e))
                 return
 
-        if summaries_data:
+        if lend(summaries) > 0 and summaries_data:
             self.add2log("posting new summaries")
             self.publishSToMq(arguments, event_types, summaries, summaries_data)
         step_size = 100
