@@ -116,7 +116,7 @@ class RabbitMQUploader(Uploader):
                 self.add2log("Unable to create channel to RabbitMQ, exception was %s" % repr(e))
                 return
 
-        if lend(summaries) > 0 and summaries_data:
+        if summaries_data:
             self.add2log("posting new summaries")
             self.publishSToMq(arguments, event_types, summaries, summaries_data)
         step_size = 100
