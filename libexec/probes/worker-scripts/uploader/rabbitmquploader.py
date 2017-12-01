@@ -23,6 +23,10 @@ class RabbitMQUploader(Uploader):
         except Exception as e:
             self.add2log("ERROR: Unable to create dirq channgel, exception was %s, " % (repr(e)))
 
+    def __del__(self):
+        self.channel.close()
+        self.connection.close()
+        
 
     # Publish summaries to Mq
     def publishSToMq(self, arguments, event_types, summaries, summaries_data):
@@ -37,9 +41,9 @@ class RabbitMQUploader(Uploader):
                          'destination' : '/topic/perfsonar.summary.' + event }
             msg_body = { 'meta': arguments }
             msg_body['summaries'] = summaries_data[event]
-            self.SendMessagetoMQ(msg_body)
+            self.SendMessagetoMQ(msg_body, event)
 
-    def SendMessagetoMQ(self, msg_body):
+    def SendMessagetoMQ(self, msg_body, event):
         # the max size limit in KB but python expects it in bytes                                                                           
         size_limit = self.maxMQmessageSize * 1000
         size_msg = self.total_size(msg_body)
@@ -52,12 +56,14 @@ class RabbitMQUploader(Uploader):
         for tries in range(5):
             try:
                 result = self.channel.basic_publish(exchange = self.exchange,
-                                                routing_key = self.routing_key,
+                                                routing_key = 'perfsonar.raw.' + event,
                                                 body = json.dumps(msg_body), 
                                                 properties = self.ch_prop)
                 break
+                if not result:
+                    raise Exception('ERROR: Exception publishing to rabbit MQ', 'Problem publishing to mq')
             except Exception as e:
-                self.add2log("Restarting pika connection")
+                self.add2log("Restarting pika connection,, exception was %s, " % (repr(e)))
                 self.restartPikaConnection()
         if result == None:
                 self.add2log("ERROR: Failed to send message to mq, exception was %s" % (repr(e)))
@@ -80,7 +86,7 @@ class RabbitMQUploader(Uploader):
                          'destination' : '/topic/perfsonar.raw.' + event}
             msg_body = { 'meta': arguments }
             msg_body['datapoints'] = datapoints[event]
-            self.SendMessagetoMQ(msg_body)
+            self.SendMessagetoMQ(msg_body, event)
             
     def restartPikaConnection(self):
         if self.channel and self.channel.is_open:
@@ -128,21 +134,16 @@ class RabbitMQUploader(Uploader):
                     pointsconsider = sorted(datapoints[event_type].keys())[step:step+step_size]
                     for point in pointsconsider:
                         chunk_datapoints[event_type][point] = datapoints[event_type][point]
-            if True:
                 self.publishRToMq(arguments, event_types, chunk_datapoints)
                 # Updating the checkpoint files for each host/metric and metadata
-                for event_type in datapoints.keys():
-                     if len(datapoints[event_type].keys()) > 0:
+                for event_type in chunk_datapoints.keys():
+                     if len(chunk_datapoints[event_type].keys()) > 0:
                          if event_type not in self.time_starts:
                              self.time_starts[event_type] = 0
-                         next_time_start = max(datapoints[event_type].keys())+1
+                         next_time_start = max(chunk_datapoints[event_type].keys())+1
                          if next_time_start > self.time_starts[event_type]:
                              self.time_starts[event_type] = int(next_time_start)
                 f = open(self.tmpDir + metadata_key, 'w')
                 f.write(json.dumps(self.time_starts))
                 f.close()
                 self.add2log("posting NEW METADATA/DATA to esmondmq %s" % metadata_key)
-
-        self.channel.close()
-        self.connection.close()
-
