@@ -75,13 +75,22 @@ class Uploader(object):
             self.add2log("Reading Summaries")
         else:
             self.add2log("Omiting Sumaries")
+        period = 3600
+        for new_time_start in range(self.time_start, self.time_end, period):
+            self.getDataHourChunks(new_time_start, new_time_start + period)
+        self.getDataHourChunks(new_time_start, self.time_end)
+
+    def getDataHourChunks(self, time_start, time_end):
+        filters.time_end = time_end;
+        filters.time_start = time_start
+        self.conn = SocksSSLApiConnect("http://"+self.connect, filters)
         metadata = self.conn.get_metadata()
         try:
-            #Test to see if https connection is succesfull
+            #Test to see if https connection is succesfull                                                                                             
             md = metadata.next()
             self.readMetaData(md)
         except Exception as e:
-            #Test to see if https connection is sucesful
+            #Test to see if https connection is sucesful                                                                                               
             self.add2log("Unable to connect to %s, exception was %s, trying SSL" % ("http://"+self.connect, e))
             try:
                 metadata = self.conn.get_metadata(cert=self.cert, key=self.certkey)
@@ -145,7 +154,7 @@ class Uploader(object):
                 et = etSSL
             # Adding the time.end filter for the data since it is not used for the metadata
             #use previously recorded end time if available
-            et.filters.time_start = self.time_start
+            et.filters.time_start = filters.time_start
             if et.event_type in self.time_starts.keys():
                 et.filters.time_start = self.time_starts[et.event_type]
                 self.add2log("loaded previous time_start %s" % et.filters.time_start)
@@ -189,7 +198,7 @@ class Uploader(object):
         try:
             self.postData(arguments, event_types, summaries, summaries_data, metadata_key, datapoints)
         except Exception as e:
-            raise Exception("Unable to post because exception: %s"  % e)
+            raise Exception("Unable to post because exception: %s"  % repr(e))
 
     # Experimental function to try to recover from missing packet-count-sent or packet-count-lost data
     def getMissingData(self, timestamp, metadata_key, event_type):
