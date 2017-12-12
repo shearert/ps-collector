@@ -167,7 +167,7 @@ class Uploader(object):
             else:
                 summaries[eventype] = []
             # Skip reading data points for certain event types to improv efficiency  
-            if eventype not in self.allowedEvents:                                                                                            
+            if eventype not in self.allowedEvents:
                 continue
             # Read summary data 
             if summary:
