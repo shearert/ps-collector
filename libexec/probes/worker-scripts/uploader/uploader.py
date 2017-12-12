@@ -167,19 +167,20 @@ class Uploader(object):
             else:
                 summaries[eventype] = []
             # Skip reading data points for certain event types to improv efficiency  
-            if eventype not in self.allowedEvents:                                                                                                  
+            if eventype not in self.allowedEvents:
                 continue
             # Read summary data 
-            summaries_data[eventype] = []
-            for summ in et.get_all_summaries():
-                if self.useSSL:
-                    summSSL = SummarySSL(summ, self.cert, self.certkey)
-                    summ = summSSL
-                summ_data = summ.get_data()
-                summ_dp = [ (dp.ts_epoch, dp.val) for dp in summ_data.data ]
-                if not summ_dp:
-                    continue
-                summaries_data[eventype].append({'event_type': eventype,
+            if summary:
+               summaries_data[eventype] = []
+               for summ in et.get_all_summaries():
+                   if self.useSSL:
+                       summSSL = SummarySSL(summ, self.cert, self.certkey)
+                       summ = summSSL
+                   summ_data = summ.get_data()
+                   summ_dp = [ (dp.ts_epoch, dp.val) for dp in summ_data.data ]
+                   if not summ_dp:
+                       continue
+                   summaries_data[eventype].append({'event_type': eventype,
                                                    'summary_type' : summ.summary_type,
                                                    'summary_window' : summ.summary_window,
                                                    'summary_data' : summ_dp })
