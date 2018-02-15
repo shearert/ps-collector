@@ -24,8 +24,9 @@ class RabbitMQUploader(Uploader):
             self.add2log("ERROR: Unable to create dirq channgel, exception was %s, " % (repr(e)))
 
     def __del__(self):
-        self.channel.close()
-        self.connection.close()
+        if self.channel and self.channel.is_open:
+            self.channel.close()
+            self.connection.close()
         
 
     # Publish summaries to Mq

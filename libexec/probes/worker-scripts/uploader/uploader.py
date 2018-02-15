@@ -78,8 +78,7 @@ class Uploader(object):
             self.add2log("Omiting Sumaries")
         period = 3600
         for new_time_start in range(self.time_start, self.time_end, period):
-            self.getDataHourChunks(new_time_start, new_time_start + period)
-        self.getDataHourChunks(new_time_start, self.time_end)
+             self.getDataHourChunks(new_time_start, new_time_start + period)
 
     def getDataHourChunks(self, time_start, time_end):
         filters.time_end = time_end;
@@ -169,6 +168,8 @@ class Uploader(object):
                 et.filters.time_start = self.time_starts[et.event_type]
                 self.add2log("loaded previous time_start %s" % et.filters.time_start)
             et.filters.time_end = filters.time_end
+            if et.filters.time_end <  et.filters.time_start:
+                continue
             eventype = et.event_type
             datapoints[eventype] = {}
             #et = md.get_event_type(eventype)
