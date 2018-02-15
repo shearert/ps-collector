@@ -33,12 +33,9 @@ class RabbitMQUploader(Uploader):
         for event in summaries_data.keys():
             if not summaries_data[event]:
                 continue
-            msg_head = { 'input-source' : arguments['input_source'],
-                         'input-destination' : arguments['input_destination'],
-                         'event-type' : event,
-                         'rsv-timestamp' : "%s" % time.time(),
-                         'summaries' : 1,
-                         'destination' : '/topic/perfsonar.summary.' + event }
+            arguments['rsv-timestamp'] = "%s" % time.time()
+            arguments['event-type'] =  event
+            arguments['summaries'] = 1
             msg_body = { 'meta': arguments }
             msg_body['summaries'] = summaries_data[event]
             self.SendMessagetoMQ(msg_body, event)
@@ -78,12 +75,9 @@ class RabbitMQUploader(Uploader):
             if not datapoints[event]:
                 continue
             # compose msg
-            msg_head = { 'input-source' : arguments['input_source'],
-                        'input-destination' : arguments['input_destination'],
-                         'event-type' : event,
-                         'rsv-timestamp' : "%s" % time.time(),
-                         'summaries' : 0,
-                         'destination' : '/topic/perfsonar.raw.' + event}
+            arguments['rsv-timestamp'] = "%s" % time.time()
+            arguments['event-type'] =  event
+            arguments['summaries'] = 0
             msg_body = { 'meta': arguments }
             msg_body['datapoints'] = datapoints[event]
             self.SendMessagetoMQ(msg_body, event)
@@ -107,6 +101,7 @@ class RabbitMQUploader(Uploader):
         summary= self.summary
         disp = self.debug
         lenght_post = -1
+        arguments['org_metadata_key'] = metadata_key
         for event_type in datapoints.keys():
             if len(datapoints[event_type])>lenght_post:
                 lenght_post = len(datapoints[event_type])
