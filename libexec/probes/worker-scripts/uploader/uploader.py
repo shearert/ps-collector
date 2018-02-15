@@ -16,6 +16,7 @@ from esmond_client.perfsonar.query import ApiConnect
 from SocksSSLApiConnect import SocksSSLApiConnect
 from SSLNodeInfo import EventTypeSSL
 from SSLNodeInfo import SummarySSL
+from requests.exceptions import ConnectionError
 
 # Set filter object
 filters = ApiFilters()
@@ -83,7 +84,10 @@ class Uploader(object):
     def getDataHourChunks(self, time_start, time_end):
         filters.time_end = time_end;
         filters.time_start = time_start
-        self.conn = SocksSSLApiConnect("http://"+self.connect, filters)
+        if self.useSSL == True:
+            self.conn = SocksSSLApiConnect("https://"+self.connect, filters)
+        else:
+            self.conn = SocksSSLApiConnect("http://"+self.connect, filters)
         metadata = self.conn.get_metadata()
         
         try:
@@ -93,7 +97,7 @@ class Uploader(object):
         except  StopIteration:
             self.add2log("There is no metadat in this time range")
             return
-        except Exception as e:
+        except ConnectionError as e:
             #Test to see if https connection is sucesful                                                                                               
             self.add2log("Unable to connect to %s, exception was %s, trying SSL" % ("http://"+self.connect, type(e)))
             try:
@@ -101,7 +105,9 @@ class Uploader(object):
                 md = metadata.next()
                 self.useSSL = True
                 self.readMetaData(md)
-            except Exception as e:
+            except  StopIteration:
+                self.add2log("There is no metadat in this time range")
+            except  ConnectionError as e:
                 raise Exception("Unable to connect to %s, exception was %s, " % ("https://"+self.connect, type(e)))
         for md in metadata:
             self.readMetaData(md)
