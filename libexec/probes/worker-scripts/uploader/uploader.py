@@ -46,7 +46,7 @@ class Uploader(object):
         # Filter for metadata
         filters.time_start = int(self.time_end - start)
         # Added time_end for bug that Andy found as sometime far in the future 24 hours
-        filters.time_end = self.time_end + 24*60*60
+        filters.time_end = self.time_end + 12*60*60
         # For logging pourposes
         filterDates = (strftime("%a, %d %b %Y %H:%M:%S ", time.gmtime(self.time_start)), strftime("%a, %d %b %Y %H:%M:%S", time.gmtime(self.time_end)))
         #filterDates = (strftime("%a, %d %b %Y %H:%M:%S ", time.gmtime(filters.time_start)))
@@ -63,6 +63,7 @@ class Uploader(object):
         allowedEvents = self.readConfigFile('allowedEvents')
         self.allowedEvents = allowedEvents.split(',')
         self.useSSL = False
+        self.maxStart = int(self.readConfigFile('maxstart'))
 
         self.summary = self.str2bool(self.readConfigFile('summary'))
                 
@@ -81,8 +82,8 @@ class Uploader(object):
              self.getDataHourChunks(new_time_start, new_time_start + period)
 
     def getDataHourChunks(self, time_start, time_end):
-        filters.time_end = time_end;
         filters.time_start = time_start
+        filters.time_end = time_end
         if self.useSSL == True:
             self.conn = SocksSSLApiConnect("https://"+self.connect, filters)
         else:
@@ -92,7 +93,7 @@ class Uploader(object):
         try:
             #Test to see if https connection is succesfull                                                                                             
             md = metadata.next()
-            self.readMetaData(md)
+            self.readMetaData(md, time_start, time_end)
         except  StopIteration:
             self.add2log("There is no metadat in this time range")
             return
@@ -103,16 +104,16 @@ class Uploader(object):
                 metadata = self.conn.get_metadata(cert=self.cert, key=self.certkey)
                 md = metadata.next()
                 self.useSSL = True
-                self.readMetaData(md)
+                self.readMetaData(md, time_start, time_end)
             except  StopIteration:
                 self.add2log("There is no metadat in this time range")
             except  ConnectionError as e:
                 raise Exception("Unable to connect to %s, exception was %s, " % ("https://"+self.connect, type(e)))
         for md in metadata:
-            self.readMetaData(md)
+            self.readMetaData(md, time_start, time_end)
 
     # Md is a metadata object of query
-    def readMetaData(self, md):
+    def readMetaData(self, md, time_start, time_end):
         disp = self.debug
         summary = self.summary
         arguments = {}
@@ -127,8 +128,6 @@ class Uploader(object):
             "input_destination": md.input_destination,
             "tool_name": md.tool_name
         }
-        if not md.time_duration is None:
-            arguments["time_duration"] = md.time_duration
         if not md.ip_transport_protocol is None:
             arguments["ip_transport_protocol"] = md.ip_transport_protocol
         # Assigning each metadata object property to class variables
@@ -163,16 +162,15 @@ class Uploader(object):
                 et = etSSL
             # Adding the time.end filter for the data since it is not used for the metadata
             #use previously recorded end time if available
-            et.filters.time_start = filters.time_start
             if et.event_type in self.time_starts.keys():
                 et.filters.time_start = self.time_starts[et.event_type]
                 self.add2log("loaded previous time_start %s" % et.filters.time_start)
-            et.filters.time_end = filters.time_end
             if et.filters.time_end <  et.filters.time_start:
                 continue
+            if (et.filters.time_end - et.filters.time_start) > self.maxStart:
+                et.filters.time_end = et.filters.time_start + maxStart
             eventype = et.event_type
             datapoints[eventype] = {}
-            #et = md.get_event_type(eventype)
             if summary:
                 summaries[eventype] = et.summaries
             else:
@@ -195,8 +193,12 @@ class Uploader(object):
                                                    'summary_type' : summ.summary_type,
                                                    'summary_window' : summ.summary_window,
                                                    'summary_data' : summ_dp })
-                # Read datapoints
-            dpay = et.get_data()
+            # Read datapoints
+            warnings.filterwarnings('error')
+            try:
+                dpay = et.get_data()
+            except Warning:
+                raise Exception("Unable to read data  exception: %s" )
             tup = ()
             for dp in dpay.data:
                 tup = (dp.ts_epoch, dp.val)
@@ -211,7 +213,7 @@ class Uploader(object):
             self.postData(arguments, event_types, summaries, summaries_data, metadata_key, datapoints)
         except Exception as e:
             raise Exception("Unable to post because exception: %s"  % repr(e))
-
+ 
     # Experimental function to try to recover from missing packet-count-sent or packet-count-lost data
     def getMissingData(self, timestamp, metadata_key, event_type):
         disp = self.debug
