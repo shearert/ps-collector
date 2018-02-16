@@ -93,7 +93,7 @@ class Uploader(object):
         try:
             #Test to see if https connection is succesfull                                                                                             
             md = metadata.next()
-            self.readMetaData(md, time_start, time_end)
+            self.readMetaData(md)
         except  StopIteration:
             self.add2log("There is no metadat in this time range")
             return
@@ -104,16 +104,16 @@ class Uploader(object):
                 metadata = self.conn.get_metadata(cert=self.cert, key=self.certkey)
                 md = metadata.next()
                 self.useSSL = True
-                self.readMetaData(md, time_start, time_end)
+                self.readMetaData(md)
             except  StopIteration:
                 self.add2log("There is no metadat in this time range")
             except  ConnectionError as e:
                 raise Exception("Unable to connect to %s, exception was %s, " % ("https://"+self.connect, type(e)))
         for md in metadata:
-            self.readMetaData(md, time_start, time_end)
+            self.readMetaData(md)
 
     # Md is a metadata object of query
-    def readMetaData(self, md, time_start, time_end):
+    def readMetaData(self, md):
         disp = self.debug
         summary = self.summary
         arguments = {}
@@ -168,7 +168,7 @@ class Uploader(object):
             if et.filters.time_end <  et.filters.time_start:
                 continue
             if (et.filters.time_end - et.filters.time_start) > self.maxStart:
-                et.filters.time_end = et.filters.time_start + maxStart
+                et.filters.time_start = et.filters.time_end - maxStart
             eventype = et.event_type
             datapoints[eventype] = {}
             if summary:
