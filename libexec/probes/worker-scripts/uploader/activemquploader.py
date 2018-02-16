@@ -64,6 +64,8 @@ class ActiveMQUploader(Uploader):
             msg_head = { 'input-source' : arguments['input_source'],
                         'input-destination' : arguments['input_destination'],
                          'org_metadata_key' : arguments['org_metadata_key'],
+                          # including the timestart of the smalles measureement                                                            
+                         'ts_start' : min(datapoints[event].keys()),
                          'event-type' : event,
                          'rsv-timestamp' : "%s" % time.time(),
                          'summaries' : 0,

@@ -79,6 +79,9 @@ class RabbitMQUploader(Uploader):
             arguments['rsv-timestamp'] = "%s" % time.time()
             arguments['event-type'] =  event
             arguments['summaries'] = 0
+            # including the timestart of the smalles measureement
+            ts_start = min(datapoints[event].keys())
+            arguments['ts_start'] = ts_start
             msg_body = { 'meta': arguments }
             msg_body['datapoints'] = datapoints[event]
             self.SendMessagetoMQ(msg_body, event)
