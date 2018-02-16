@@ -128,6 +128,8 @@ class Uploader(object):
             "input_destination": md.input_destination,
             "tool_name": md.tool_name
         }
+        if not md.time_duration is None:
+            arguments["time_duration"] = md.time_duration
         if not md.ip_transport_protocol is None:
             arguments["ip_transport_protocol"] = md.ip_transport_protocol
         # Assigning each metadata object property to class variables
@@ -162,9 +164,11 @@ class Uploader(object):
                 et = etSSL
             # Adding the time.end filter for the data since it is not used for the metadata
             #use previously recorded end time if available
+            et.filters.time_start = filters.time_start
             if et.event_type in self.time_starts.keys():
                 et.filters.time_start = self.time_starts[et.event_type]
                 self.add2log("loaded previous time_start %s" % et.filters.time_start)
+            et.filters.time_end = filters.time_end
             if et.filters.time_end <  et.filters.time_start:
                 continue
             if (et.filters.time_end - et.filters.time_start) > self.maxStart:
