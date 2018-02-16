@@ -16,6 +16,7 @@ from esmond_client.perfsonar.query import ApiConnect
 from SocksSSLApiConnect import SocksSSLApiConnect
 from SSLNodeInfo import EventTypeSSL
 from SSLNodeInfo import SummarySSL
+from requests.exceptions import ConnectionError
 
 # Set filter object
 filters = ApiFilters()
@@ -45,7 +46,7 @@ class Uploader(object):
         # Filter for metadata
         filters.time_start = int(self.time_end - start)
         # Added time_end for bug that Andy found as sometime far in the future 24 hours
-        filters.time_end = self.time_end + 24*60*60
+        filters.time_end = self.time_end + 12*60*60
         # For logging pourposes
         filterDates = (strftime("%a, %d %b %Y %H:%M:%S ", time.gmtime(self.time_start)), strftime("%a, %d %b %Y %H:%M:%S", time.gmtime(self.time_end)))
         #filterDates = (strftime("%a, %d %b %Y %H:%M:%S ", time.gmtime(filters.time_start)))
@@ -62,6 +63,7 @@ class Uploader(object):
         allowedEvents = self.readConfigFile('allowedEvents')
         self.allowedEvents = allowedEvents.split(',')
         self.useSSL = False
+        self.maxStart = int(self.readConfigFile('maxstart'))
 
         self.summary = self.str2bool(self.readConfigFile('summary'))
                 
@@ -77,28 +79,36 @@ class Uploader(object):
             self.add2log("Omiting Sumaries")
         period = 3600
         for new_time_start in range(self.time_start, self.time_end, period):
-            self.getDataHourChunks(new_time_start, new_time_start + period)
-        self.getDataHourChunks(new_time_start, self.time_end)
+             self.getDataHourChunks(new_time_start, new_time_start + period)
 
     def getDataHourChunks(self, time_start, time_end):
-        filters.time_end = time_end;
         filters.time_start = time_start
-        self.conn = SocksSSLApiConnect("http://"+self.connect, filters)
+        filters.time_end = time_end
+        if self.useSSL == True:
+            self.conn = SocksSSLApiConnect("https://"+self.connect, filters)
+        else:
+            self.conn = SocksSSLApiConnect("http://"+self.connect, filters)
         metadata = self.conn.get_metadata()
+        
         try:
             #Test to see if https connection is succesfull                                                                                             
             md = metadata.next()
             self.readMetaData(md)
-        except Exception as e:
+        except  StopIteration:
+            self.add2log("There is no metadat in this time range")
+            return
+        except ConnectionError as e:
             #Test to see if https connection is sucesful                                                                                               
-            self.add2log("Unable to connect to %s, exception was %s, trying SSL" % ("http://"+self.connect, e))
+            self.add2log("Unable to connect to %s, exception was %s, trying SSL" % ("http://"+self.connect, type(e)))
             try:
                 metadata = self.conn.get_metadata(cert=self.cert, key=self.certkey)
                 md = metadata.next()
                 self.useSSL = True
                 self.readMetaData(md)
-            except Exception as e:
-                raise Exception("Unable to connect to %s, exception was %s, " % ("https://"+self.connect, e))
+            except  StopIteration:
+                self.add2log("There is no metadat in this time range")
+            except  ConnectionError as e:
+                raise Exception("Unable to connect to %s, exception was %s, " % ("https://"+self.connect, type(e)))
         for md in metadata:
             self.readMetaData(md)
 
@@ -159,9 +169,12 @@ class Uploader(object):
                 et.filters.time_start = self.time_starts[et.event_type]
                 self.add2log("loaded previous time_start %s" % et.filters.time_start)
             et.filters.time_end = filters.time_end
+            if et.filters.time_end <  et.filters.time_start:
+                continue
+            if (et.filters.time_end - et.filters.time_start) > self.maxStart:
+                et.filters.time_start = et.filters.time_end - maxStart
             eventype = et.event_type
             datapoints[eventype] = {}
-            #et = md.get_event_type(eventype)
             if summary:
                 summaries[eventype] = et.summaries
             else:
@@ -184,8 +197,12 @@ class Uploader(object):
                                                    'summary_type' : summ.summary_type,
                                                    'summary_window' : summ.summary_window,
                                                    'summary_data' : summ_dp })
-                # Read datapoints
-            dpay = et.get_data()
+            # Read datapoints
+            warnings.filterwarnings('error')
+            try:
+                dpay = et.get_data()
+            except Warning:
+                raise Exception("Unable to read data  exception: %s" )
             tup = ()
             for dp in dpay.data:
                 tup = (dp.ts_epoch, dp.val)
@@ -200,7 +217,7 @@ class Uploader(object):
             self.postData(arguments, event_types, summaries, summaries_data, metadata_key, datapoints)
         except Exception as e:
             raise Exception("Unable to post because exception: %s"  % repr(e))
-
+ 
     # Experimental function to try to recover from missing packet-count-sent or packet-count-lost data
     def getMissingData(self, timestamp, metadata_key, event_type):
         disp = self.debug

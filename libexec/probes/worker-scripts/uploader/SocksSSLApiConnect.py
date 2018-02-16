@@ -82,6 +82,7 @@ class SocksSSLApiConnect(ApiConnect):
             for i in data:
                 yield Metadata(i, self.api_url, self.filters)
         else:
+            raise Exception("Obtained responser error %s" % r.status_code )
             self.http_alert(r)
             return
             yield

@@ -38,13 +38,12 @@ else:
 def get_post():
     try:
         caller.getData()
+        caller.add2log("Finished getting and posting data succesfully!")
+        sys.exit(0)
     except Exception, err:
         print Exception, err
         print "ERROR:! Unsuccessful! Exception: \"%s\" of type: \"%s\" was thrown! Quitting out." % (err,type(err))
         sys.exit(1)
-    else:
-        caller.add2log("Finished getting and posting data succesfully!")
-        sys.exit(0)
 
 
 def handler(signum, frame):
