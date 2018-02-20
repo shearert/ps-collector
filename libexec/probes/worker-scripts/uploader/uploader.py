@@ -172,7 +172,7 @@ class Uploader(object):
             if et.filters.time_end <  et.filters.time_start:
                 continue
             if (et.filters.time_end - et.filters.time_start) > self.maxStart:
-                et.filters.time_start = et.filters.time_end - maxStart
+                et.filters.time_start = et.filters.time_end - self.maxStart
             eventype = et.event_type
             datapoints[eventype] = {}
             if summary:
