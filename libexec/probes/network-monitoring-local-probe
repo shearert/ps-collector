@@ -38,9 +38,9 @@ class NetworkMonitoringLocalProbe(rsvprobe.RSVProbe):
         # For addin up to max_mesh different specific meshes
         for mesh_num in range(0, max_mesh):
             mesh_opt = "mesh%d=" % mesh_num
-            self.addopt("", mesh_opt, "--mesh# url of the personar mesh (ex. --mesh0 http://myosg.grid.iu.edu/pfmesh/json --mesh2 url2")
+            self.addopt("", mesh_opt, "--mesh# url of the personar mesh (ex. --mesh0 http://meshconfig.opensciencegrid.org/pub/config/ps-testbed --mesh2 url2")
         # Adding a new super_mesh which is a json with several other meshes
-        self.addopt("", "super_mesh=", "--super_mesh# url of the goc mesh which has some others (ex. --super_mesh http://myosg.grid.iu.edu/pfmesh/all?new")
+        self.addopt("", "super_mesh=", "--super_mesh# url of the goc mesh which has some others (ex. --super_mesh https://meshconfig.opensciencegrid.org/pub/config")
         self.meshlist = []
         self.super_mesh = ""
         self.nodesIP = []
