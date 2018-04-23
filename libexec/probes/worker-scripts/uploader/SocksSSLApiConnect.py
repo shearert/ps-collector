@@ -29,9 +29,7 @@ class SocksSSLApiConnect(ApiConnect):
             r = requests.get(archive_url,
             params=dict(self.filters.metadata_filters, **self.filters.time_filters),
             headers = self.request_headers)
-
         self.inspect_request(r)
-
         data = list()
 
         if r.status_code == 200 and \
@@ -85,4 +83,4 @@ class SocksSSLApiConnect(ApiConnect):
             raise Exception("Obtained responser error %s" % r.status_code )
             self.http_alert(r)
             return
-            yield
+            

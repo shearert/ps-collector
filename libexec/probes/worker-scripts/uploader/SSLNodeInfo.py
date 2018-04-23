@@ -25,7 +25,6 @@ class EventTypeSSL(EventType):
 
         # XXX(mmg) - revisit this value?                                                                                    
         LIMIT = 1000
-
         q_params = copy.copy(self.filters.time_filters)
         q_params['limit'] = LIMIT
 
@@ -64,7 +63,7 @@ class EventTypeSSL(EventType):
                     self.warn('time start >= time end - exiting query loop')
                     break
             else:
-                print 'Problems withe the connection to'
+                print 'Problems with the the connection to'
                 self.http_alert(r)
                 raise QueryLimitException
         if self.filters.verbose: print '  *** finished with {0} results'.format(len(data_payload))
@@ -82,7 +81,6 @@ class SummarySSL(Summary):
         and Summary sub-classes. Make a series of limited queries in a loop 
         and return the compiled results. 
         Meant to optimize pulls of large amounts of data."""
-
         if self.filters.verbose: print ' * looping query for: {0}'.format(self.query_uri)
 
         # XXX(mmg) - revisit this value?
