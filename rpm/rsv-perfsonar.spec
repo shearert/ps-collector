@@ -1,5 +1,5 @@
 Name:      rsv-perfsonar
-Version:   1.7.0
+Version:   1.7.1
 Release:   1%{?dist}
 Summary:   RSV Metrics to monitor pefsonar
 Packager:  OSG-Software
@@ -76,7 +76,7 @@ pip install pika
 
 
 %changelog
-* Mon Apr 23 2018 <efajardo@physics.ucsd.edu> 1.7.0-1
+* Mon Apr 23 2018 <efajardo@physics.ucsd.edu> 1.7.1-1
 - Dropped the esmond requirements.
 - First build for EL7.
 
