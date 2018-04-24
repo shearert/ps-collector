@@ -1,5 +1,5 @@
 Name:      rsv-perfsonar
-Version:   1.7.3
+Version:   1.7.4
 Release:   1%{?dist}
 Summary:   RSV Metrics to monitor pefsonar
 Packager:  OSG-Software
@@ -15,7 +15,6 @@ BuildArch: noarch
 Requires: rsv
 # virtual env required to install esmond client python libraries
 Requires: python-virtualenv
-Requires: /usr/bin/python2.7
 #This requirements to publish data to the CERN message brokers
 Requires: stompclt
 Requires: python-simplevisor
@@ -76,7 +75,7 @@ pip install pika
 
 
 %changelog
-* Mon Apr 23 2018 <efajardo@physics.ucsd.edu> 1.7.3-1
+* Mon Apr 23 2018 <efajardo@physics.ucsd.edu> 1.7.4-1
 - Dropped the esmond requirements.
 - First build for EL7.
 
