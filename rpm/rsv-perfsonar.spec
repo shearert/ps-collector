@@ -64,9 +64,10 @@ rm -rf $RPM_BUILD_ROOT
 %{_initrddir}/simplevisor
 
 %post -p /bin/bash
-mkdir /var/rsv/localenv                                                                                                                                    
+mkdir -p /var/rsv/localenv                                                                                                                                    
 virtualenv --python=/usr/bin/python2.7 --prompt="(esmondup)" /var/rsv/localenv                                                                            
 . /var/rsv/localenv/bin/activate
+pip install -U pip
 pip install esmond-client --upgrade                                                                                                                          
 pip install requesocks --upgrade
 pip install dirq --upgrade
