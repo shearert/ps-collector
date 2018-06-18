@@ -51,7 +51,7 @@ class RabbitMQUploader(Uploader):
             return
         # add to mq
         result = None
-        for tries in range(5):
+        for tries in range(2):
             try:
                 result = self.channel.basic_publish(exchange = self.exchange,
                                                 routing_key = 'perfsonar.raw.' + event,
@@ -124,7 +124,8 @@ class RabbitMQUploader(Uploader):
         if summaries_data:
             self.add2log("posting new summaries")
             self.publishSToMq(arguments, event_types, summaries, summaries_data)
-        step_size = 100
+        step_size = 200
+        self.add2log("Length of the post: %s " % lenght_post)
         for step in range(0, lenght_post, step_size):
             chunk_datapoints = {}
             for event_type in datapoints.keys():
@@ -133,16 +134,16 @@ class RabbitMQUploader(Uploader):
                     pointsconsider = sorted(datapoints[event_type].keys())[step:step+step_size]
                     for point in pointsconsider:
                         chunk_datapoints[event_type][point] = datapoints[event_type][point]
-                self.publishRToMq(arguments, event_types, chunk_datapoints)
-                # Updating the checkpoint files for each host/metric and metadata
-                for event_type in chunk_datapoints.keys():
-                     if len(chunk_datapoints[event_type].keys()) > 0:
-                         if event_type not in self.time_starts:
-                             self.time_starts[event_type] = 0
-                         next_time_start = max(chunk_datapoints[event_type].keys())+1
-                         if next_time_start > self.time_starts[event_type]:
-                             self.time_starts[event_type] = int(next_time_start)
-                f = open(self.tmpDir + metadata_key, 'w')
-                f.write(json.dumps(self.time_starts))
-                f.close()
-                self.add2log("posting NEW METADATA/DATA to esmondmq %s" % metadata_key)
+            self.publishRToMq(arguments, event_types, chunk_datapoints)
+            # Updating the checkpoint files for each host/metric and metadata
+            for event_type in chunk_datapoints.keys():
+                if len(chunk_datapoints[event_type].keys()) > 0:
+                    if event_type not in self.time_starts:
+                        self.time_starts[event_type] = 0
+                    next_time_start = max(chunk_datapoints[event_type].keys())+1
+                    if next_time_start > self.time_starts[event_type]:
+                        self.time_starts[event_type] = int(next_time_start)
+                    f = open(self.tmpDir + metadata_key, 'w')
+                    f.write(json.dumps(self.time_starts))
+                    f.close()
+            self.add2log("posting NEW METADATA/DATA to rabbitMQ %s" % metadata_key)
