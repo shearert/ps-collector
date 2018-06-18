@@ -143,7 +143,7 @@ class RabbitMQUploader(Uploader):
                     next_time_start = max(chunk_datapoints[event_type].keys())+1
                     if next_time_start > self.time_starts[event_type]:
                         self.time_starts[event_type] = int(next_time_start)
-                    f = open(self.tmpDir + metadata_key, 'w')
-                    f.write(json.dumps(self.time_starts))
-                    f.close()
+            f = open(self.tmpDir + metadata_key, 'w')
+            f.write(json.dumps(self.time_starts))
+            f.close()
             self.add2log("posting NEW METADATA/DATA to rabbitMQ %s" % metadata_key)
