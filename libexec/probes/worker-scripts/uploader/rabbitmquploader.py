@@ -51,7 +51,7 @@ class RabbitMQUploader(Uploader):
             return
         # add to mq
         result = None
-        for tries in range(2):
+        for tries in range(5):
             try:
                 result = self.channel.basic_publish(exchange = self.exchange,
                                                 routing_key = 'perfsonar.raw.' + event,
