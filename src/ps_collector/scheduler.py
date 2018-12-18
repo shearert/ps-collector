@@ -8,6 +8,7 @@ import schedule
 
 import ps_collector.config
 import ps_collector.sharedrabbitmq
+from ps_collector.rabbitmquploader import RabbitMQUploader
 
 # The conversion factor from minutes to seconds:
 # Temporarily change to 1 to make the query cycles faster when debugging.
@@ -39,6 +40,7 @@ def with_logging(func):
 
 def query_ps_child(cp, endpoint):
     print("I query endpoint {}.".format(endpoint))
+    RabbitMQUploader(connect=endpoint)
     time.sleep(5)
 
 

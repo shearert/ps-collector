@@ -75,7 +75,7 @@ class RabbitMQUploader(Uploader):
             arguments['ts_start'] = ts_start
             msg_body = { 'meta': arguments }
             msg_body['datapoints'] = datapoints[event]
-            self.SendMessagetoMQ(msg_body, event)s
+            self.SendMessagetoMQ(msg_body, event)
 
     def postData(self, arguments, event_types, summaries, summaries_data, metadata_key, datapoints):
         summary= self.summary
