@@ -5,7 +5,8 @@ from ps_collector.sharedrabbitmq import SharedRabbitMQ
 import ps_collector
 import time
 import json
-
+import tempfile
+import os
 
 class RabbitMQUploader(Uploader):
     
@@ -119,7 +120,20 @@ class RabbitMQUploader(Uploader):
                     next_time_start = max(chunk_datapoints[event_type].keys())+1
                     if next_time_start > self.time_starts[event_type]:
                         self.time_starts[event_type] = int(next_time_start)
-            f = open(self.tmpDir + metadata_key, 'w')
-            f.write(json.dumps(self.time_starts))
-            f.close()
+
+            self.writeCheckpoint(metadata_key, self.time_starts)
             self.add2log("posting NEW METADATA/DATA to rabbitMQ %s" % metadata_key)
+
+    def writeCheckpoint(self, metadata_key, times):
+        """
+        Perform an atomic write to the checkpoint file
+        """
+        # Open a temporary file
+        (file_handle, tmp_filename) = tempfile.mkstemp(dir=self.tmpDir)
+        wrapped_file = os.fdopen(file_handle, 'w')
+        wrapped_file.write(json.dumps(times))
+        wrapped_file.close()
+        os.rename(tmp_filename, self.tmpDir + metadata_key)
+
+
+
