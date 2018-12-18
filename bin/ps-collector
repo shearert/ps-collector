@@ -1,0 +1,5 @@
+#!/usr/bin/env python
+
+import ps_collector.scheduler
+
+ps_collector.scheduler.main()
