@@ -29,14 +29,12 @@ class Uploader(object):
     def __init__(self, start = 1600,
                  connect = 'iut2-net3.iu.edu',
                  metricName='org.osg.general-perfsonar-simple.conf', 
-                 config = 'org.osg.general-perfsonar-simple.conf'):
+                 config = None):
+        self.config = config
         ########################################
         ### New Section to read directly the configuration file                                                                     
         self.metricName =  metricName
         #conf_dir = os.path.join("/", "etc", "rsv", "metrics")
-        self.configFile = config
-        self.add2log("Configuration File: %s" % self.configFile)
-        self.config = ConfigParser.RawConfigParser()
         ########################################        
         self.debug = self.str2bool(self.readConfigFile('debug'))
         verbose = self.debug
@@ -221,7 +219,10 @@ class Uploader(object):
         try:
             self.postData(arguments, event_types, summaries, summaries_data, metadata_key, datapoints)
         except Exception as e:
-            raise Exception("Unable to post because exception: %s"  % repr(e))
+            import traceback
+            traceback.print_exc()
+            raise e
+            #raise Exception("Unable to post because exception: %s"  % repr(e))
  
     # Experimental function to try to recover from missing packet-count-sent or packet-count-lost data
     def getMissingData(self, timestamp, metadata_key, event_type):
@@ -258,7 +259,6 @@ class Uploader(object):
 
     def readConfigFile(self, key):
         section = self.metricName + " args"
-        ret = self.config.read(self.configFile)
         try:
             return self.config.get(section, key)
         except ConfigParser.NoOptionError:
@@ -270,35 +270,35 @@ class Uploader(object):
         return word.lower() in ("true")
 
     def total_size(o, handlers={}, verbose=False):
-     """ Returns the approximate memory footprint an object and all of its contents.
+        """ Returns the approximate memory footprint an object and all of its contents.
 
-     Automatically finds the contents of the following builtin containers and
-     their subclasses:  tuple, list, deque, dict, set and frozenset.
-     To search other containers, add handlers to iterate over their contents:
+        Automatically finds the contents of the following builtin containers and
+        their subclasses:  tuple, list, deque, dict, set and frozenset.
+        To search other containers, add handlers to iterate over their contents:
 
-        handlers = {SomeContainerClass: iter,
-                    OtherContainerClass: OtherContainerClass.get_elements}
- 
-     """
-     dict_handler = lambda d: chain.from_iterable(d.items())
-     all_handlers = {tuple: iter,
-                    list: iter,
-                    dict: dict_handler,
-                    set: iter,
-                    frozenset: iter,
-                   }
-     #all_handlers.update(handlers)     # user handlers take precedence
-     seen = set()                      # track which object id's have already been seen
-     default_size = sys.getsizeof(0)       # estimate sizeof object without __sizeof__
+            handlers = {SomeContainerClass: iter,
+                        OtherContainerClass: OtherContainerClass.get_elements}
+    
+        """
+        dict_handler = lambda d: chain.from_iterable(d.items())
+        all_handlers = {tuple: iter,
+                        list: iter,
+                        dict: dict_handler,
+                        set: iter,
+                        frozenset: iter,
+                    }
+        #all_handlers.update(handlers)     # user handlers take precedence
+        seen = set()                      # track which object id's have already been seen
+        default_size = sys.getsizeof(0)       # estimate sizeof object without __sizeof__
 
-     def sizeof(o):
-        if id(o) in seen:       # do not double count the same object
-            return 0
-        seen.add(id(o))
-        s = sys.getsizeof(o, default_size)
+        def sizeof(o):
+            if id(o) in seen:       # do not double count the same object
+                return 0
+            seen.add(id(o))
+            s = sys.getsizeof(o, default_size)
 
-        for typ, handler in all_handlers.items():
-            if isinstance(o, typ):
-                s += sum(map(sizeof, handler(o)))
-                break
-        return s
+            for typ, handler in all_handlers.items():
+                if isinstance(o, typ):
+                    s += sum(map(sizeof, handler(o)))
+                    break
+            return s
