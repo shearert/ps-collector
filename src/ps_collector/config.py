@@ -1,7 +1,7 @@
 
-import os
-
 import ConfigParser
+import logging.config
+import os
 
 
 def get_config():
@@ -17,4 +17,11 @@ def get_config():
                 continue
             cp.read(os.path.join(config_dir, fname))
     return cp
+
+
+def setup_logging(cp):
+    config_file = "/etc/ps-collector/logging-config.ini"
+    if cp.has_option("General", "logging_configuration"):
+        config_file = cp.get("General", "logging_configuration")
+    logging.config.fileConfig(config_file)
 
