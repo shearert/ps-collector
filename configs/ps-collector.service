@@ -1,0 +1,17 @@
+[Unit]
+Description=Data collector for perfSonar endpoints
+Requires=network-online.target
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/ps-collector
+User=pscollector
+Group=pscollector
+Type=simple
+Restart=on-abort
+RestartSec=1 min
+KillMode=control-group
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
