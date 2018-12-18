@@ -32,14 +32,7 @@ def query_ps_child(cp, endpoint):
     reverse_dns = ".".join(reverse_dns[::-1])
     log = logging.getLogger("perfSonar.{}".format(reverse_dns))
     log.info("I query endpoint {}.".format(endpoint))
-    try:
-        RabbitMQUploader(connect=endpoint, config=cp).getData()
-    except Exception as ex:
-        import traceback
-        traceback.print_exc()
-        raise ex
-
-    time.sleep(5)
+    RabbitMQUploader(connect=endpoint, config=cp, log = log).getData()
 
 
 def query_ps(state, endpoint):

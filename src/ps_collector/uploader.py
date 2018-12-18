@@ -22,14 +22,12 @@ from requests.exceptions import ConnectionError
 filters = ApiFilters()
 
 class Uploader(object):
-
-    def add2log(self, log):
-        print strftime("%a, %d %b %Y %H:%M:%S", localtime()), str(log)
     
     def __init__(self, start = 1600,
                  connect = 'iut2-net3.iu.edu',
                  metricName='org.osg.general-perfsonar-simple.conf', 
-                 config = None):
+                 config = None, log = None):
+        self.log = log
         self.config = config
         ########################################
         ### New Section to read directly the configuration file                                                                     
@@ -51,8 +49,8 @@ class Uploader(object):
         # For logging pourposes
         filterDates = (strftime("%a, %d %b %Y %H:%M:%S ", time.gmtime(self.time_start)), strftime("%a, %d %b %Y %H:%M:%S", time.gmtime(self.time_end)))
         #filterDates = (strftime("%a, %d %b %Y %H:%M:%S ", time.gmtime(filters.time_start)))
-        self.add2log("Data interval is from %s to %s" %filterDates)
-        self.add2log("Metada interval is from %s to now" % (filters.time_start))
+        self.log.info("Data interval is from %s to %s" %filterDates)
+        self.log.info("Metada interval is from %s to now" % (filters.time_start))
         # Connection info to the perfsonar remote host that the data is gathered from.
         self.connect = connect
         self.conn = SocksSSLApiConnect("http://"+self.connect, filters)
@@ -71,13 +69,13 @@ class Uploader(object):
     # Get Data
     def getData(self):
         disp = self.debug
-        self.add2log("Only reading data for event types: %s" % (str(self.allowedEvents)))
+        self.log.info("Only reading data for event types: %s" % (str(self.allowedEvents)))
         summary = self.summary
         disp = self.debug
         if summary:
-            self.add2log("Reading Summaries")
+            self.log.info("Reading Summaries")
         else:
-            self.add2log("Omiting Sumaries")
+            self.log.info("Omiting Sumaries")
         period = 3600
         for new_time_start in range(self.time_start, self.time_end, period):
              self.getDataHourChunks(new_time_start, new_time_start + period)
@@ -98,18 +96,18 @@ class Uploader(object):
             md = metadata.next()
             self.readMetaData(md)
         except  StopIteration:
-            self.add2log("There is no metadat in this time range")
+            self.log.warning("There is no metadat in this time range")
             return
         except ConnectionError as e:
             #Test to see if https connection is sucesful                                                                                               
-            self.add2log("Unable to connect to %s, exception was %s, trying SSL" % ("http://"+self.connect, type(e)))
+            self.log.exception("Unable to connect to %s, exception was %s, trying SSL" % ("http://"+self.connect, type(e)))
             try:
                 metadata = self.conn.get_metadata(cert=self.cert, key=self.certkey)
                 md = metadata.next()
                 self.useSSL = True
                 self.readMetaData(md)
             except  StopIteration:
-                self.add2log("There is no metadat in this time range")
+                self.log.warning("There is no metadat in this time range")
             except  ConnectionError as e:
                 raise Exception("Unable to connect to %s, exception was %s, " % ("https://"+self.connect, type(e)))
         for md in metadata:
@@ -139,10 +137,10 @@ class Uploader(object):
         event_types = md.event_types
         metadata_key = md.metadata_key
         # print extra debugging only if requested
-        self.add2log("Reading New METADATA/DATA %s" % (md.metadata_key))
+        self.log.info("Reading New METADATA/DATA %s" % (md.metadata_key))
         if disp:
-            self.add2log("Posting args: ")
-            self.add2log(arguments)
+            self.log.debug("Posting args: ")
+            self.log.debug(arguments)
         # Get Events and Data Payload
         summaries = {}
         summaries_data = {}
@@ -157,10 +155,10 @@ class Uploader(object):
             self.time_starts = json.loads(f.read())
             f.close()
         except IOError:
-            self.add2log("first time for %s" % (md.metadata_key))
+            self.log.exception("first time for %s" % (md.metadata_key))
         except ValueError:
             # decoding failed
-            self.add2log("first time for %s" % (md.metadata_key))
+            self.log.exception("first time for %s" % (md.metadata_key))
         for et in md.get_all_event_types():
             if self.useSSL:
                 etSSL = EventTypeSSL(et, self.cert, self.certkey)
@@ -170,7 +168,7 @@ class Uploader(object):
             et.filters.time_start = filters.time_start
             if et.event_type in self.time_starts.keys():
                 et.filters.time_start = self.time_starts[et.event_type]
-                self.add2log("loaded previous time_start %s" % et.filters.time_start)
+                self.log.info("loaded previous time_start %s" % et.filters.time_start)
             et.filters.time_end = filters.time_end
             if et.filters.time_end <  et.filters.time_start:
                 continue
@@ -211,11 +209,11 @@ class Uploader(object):
                 tup = (dp.ts_epoch, dp.val)
                 datapoints[eventype][dp.ts_epoch] = dp.val
                 # print debugging data
-            self.add2log("For event type %s, %d new data points"  %(eventype, len(datapoints[eventype])))
+            self.log.info("For event type %s, %d new data points"  %(eventype, len(datapoints[eventype])))
             if len(datapoints[eventype]) > 0 and not isinstance(tup[1], (dict,list)): 
                 # picking the first one as the sample
                 datapointSample[eventype] = tup[1]
-        self.add2log("Sample of the data being posted %s" % datapointSample)
+        self.log.debug("Sample of the data being posted %s" % datapointSample)
         try:
             self.postData(arguments, event_types, summaries, summaries_data, metadata_key, datapoints)
         except Exception as e:
@@ -249,7 +247,7 @@ class Uploader(object):
             dpay = et.get_data()
             for dp in dpay.data:
                 if dp.ts_epoch == timestamp:
-                    self.add2log("point found")
+                    self.log.debug("point found")
                     datapoints[event_type][dp.ts_epoch] = dp.val
         return datapoints
                 
@@ -262,7 +260,7 @@ class Uploader(object):
         try:
             return self.config.get(section, key)
         except ConfigParser.NoOptionError:
-            self.add2log("ERROR: config knob %s not found in file: %s"% (key, self.configFile))
+            self.log.exception("ERROR: config knob %s not found in file: %s"% (key, self.configFile))
             raise Exception("ERROR: config knob %s not found in file: %s"% (key, self.configFile))
             
 

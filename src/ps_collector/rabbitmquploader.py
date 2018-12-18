@@ -12,8 +12,8 @@ class RabbitMQUploader(Uploader):
     
     def __init__(self, start = 1600, connect = 'iut2-net3.iu.edu',
                  metricName='org.osg.general.perfsonar-rabbitmq-simple',
-                 config = None):
-        Uploader.__init__(self, start, connect, metricName, config)
+                 config = None, log = None):
+        Uploader.__init__(self, start, connect, metricName, config, log)
         
         self.channel = ps_collector.get_rabbitmq_connection(config).createChannel()
         self.maxMQmessageSize =  self.readConfigFile('mq-max-message-size')
@@ -41,7 +41,7 @@ class RabbitMQUploader(Uploader):
         size_msg = self.total_size(msg_body)
         # if size of the message is larger than 10MB discarrd                                                                             
         if size_msg > size_limit:
-            self.add2log("Size of message body bigger than limit, discarding")
+            self.log.warning("Size of message body bigger than limit, discarding")
             return
         # add to mq
         result = None
@@ -55,12 +55,10 @@ class RabbitMQUploader(Uploader):
                 if not result:
                     raise Exception('ERROR: Exception publishing to rabbit MQ', 'Problem publishing to mq')
             except Exception as e:
-                import traceback
-                traceback.print_exc()
-                self.add2log("Restarting pika connection,, exception was %s, " % (repr(e)))
+                self.log.exception("Restarting pika connection,, exception was %s, " % (repr(e)))
                 #self.restartPikaConnection()
         if result == None:
-                self.add2log("ERROR: Failed to send message to mq, exception was %s" % (repr(e)))
+                self.log.error("ERROR: Failed to send message to mq, exception was %s" % (repr(e)))
 
     # Publish message to Mq
     def publishRToMq(self, arguments, event_types, datapoints):
@@ -91,7 +89,7 @@ class RabbitMQUploader(Uploader):
             if len(datapoints[event_type])>lenght_post:
                 lenght_post = len(datapoints[event_type])
         if lenght_post == 0:
-            self.add2log("No new datapoints skipping posting for efficiency")
+            self.log.info("No new datapoints skipping posting for efficiency")
             return
 
         # Now that we know we have data to send, actually connect upstream.
@@ -99,10 +97,10 @@ class RabbitMQUploader(Uploader):
             self.channel = ps_collector.get_rabbitmq_connection(self.config).createChannel()
 
         if summaries_data:
-            self.add2log("posting new summaries")
+            self.log.info("posting new summaries")
             self.publishSToMq(arguments, event_types, summaries, summaries_data)
         step_size = 200
-        self.add2log("Length of the post: %s " % lenght_post)
+        self.log.info("Length of the post: %s " % lenght_post)
         for step in range(0, lenght_post, step_size):
             chunk_datapoints = {}
             for event_type in datapoints.keys():
@@ -122,7 +120,7 @@ class RabbitMQUploader(Uploader):
                         self.time_starts[event_type] = int(next_time_start)
 
             self.writeCheckpoint(metadata_key, self.time_starts)
-            self.add2log("posting NEW METADATA/DATA to rabbitMQ %s" % metadata_key)
+            self.log.info("posting NEW METADATA/DATA to rabbitMQ %s" % metadata_key)
 
     def writeCheckpoint(self, metadata_key, times):
         """
