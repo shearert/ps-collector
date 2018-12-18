@@ -46,7 +46,7 @@ class RabbitMQUploader(Uploader):
         result = None
         for tries in range(5):
             try:
-                result = self.channel.basic_publish(exchange = self.readConfigFile('exchange'),
+                result = self.channel.basic_publish(exchange = self.config.get('rabbitmq', 'exchange'),
                                                 routing_key = 'perfsonar.raw.' + event,
                                                 body = json.dumps(msg_body), 
                                                 properties = pika.BasicProperties(delivery_mode = 2))
@@ -54,8 +54,10 @@ class RabbitMQUploader(Uploader):
                 if not result:
                     raise Exception('ERROR: Exception publishing to rabbit MQ', 'Problem publishing to mq')
             except Exception as e:
+                import traceback
+                traceback.print_exc()
                 self.add2log("Restarting pika connection,, exception was %s, " % (repr(e)))
-                self.restartPikaConnection()
+                #self.restartPikaConnection()
         if result == None:
                 self.add2log("ERROR: Failed to send message to mq, exception was %s" % (repr(e)))
 

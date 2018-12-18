@@ -262,8 +262,8 @@ class Uploader(object):
         try:
             return self.config.get(section, key)
         except ConfigParser.NoOptionError:
-            self.add2log("ERROR: config knob %s not found in file: %s"% (self.key, self.configFile))
-            raise Exception("ERROR: config knob %s not found in file: %s"% (self.key, self.configFile))
+            self.add2log("ERROR: config knob %s not found in file: %s"% (key, self.configFile))
+            raise Exception("ERROR: config knob %s not found in file: %s"% (key, self.configFile))
             
 
     def str2bool(self,word):
