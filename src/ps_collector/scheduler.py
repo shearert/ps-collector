@@ -9,13 +9,10 @@ import schedule
 import ps_collector.config
 import ps_collector.sharedrabbitmq
 from ps_collector.rabbitmquploader import RabbitMQUploader
+import ps_collector
 
 # The conversion factor from minutes to seconds:
 MINUTE = 60
-
-# Global shared RabbitMQ connection
-shared_rabbitmq = None
-
 
 class SchedulerState(object):
 
@@ -39,7 +36,13 @@ def with_logging(func):
 
 def query_ps_child(cp, endpoint):
     print("I query endpoint {}.".format(endpoint))
-    RabbitMQUploader(connect=endpoint).getData()
+    try:
+        RabbitMQUploader(connect=endpoint).getData()
+    except Exception as ex:
+        import traceback
+        traceback.print_exc()
+        raise ex
+
     time.sleep(5)
 
 
@@ -94,12 +97,15 @@ def query_ps_mesh(state):
 
 
 def main():
-    global shared_rabbitmq
+    global ps_collector.shared_rabbitmq
     global MINUTE
     cp = ps_collector.config.get_config()
     if cp.has_option("Scheduler", "debug"):
         if cp.get("Scheduler", "debug").lower() == "true":
             MINUTE = 1
+
+    # Initialize the shared RabbitMQ
+    shared_rabbitmq = ps_collector.sharedrabbitmq.SharedRabbitMQ(cp)
 
     pool_size = 5
     if cp.has_option("Scheduler", "pool_size"):
@@ -112,9 +118,6 @@ def main():
 
     mesh_interval_s = cp.getint("Scheduler", "mesh_interval") * MINUTE
     schedule.every(mesh_interval_s).to(mesh_interval_s + MINUTE).seconds.do(query_ps_mesh_job)
-
-    # Initialize the shared RabbitMQ
-    shared_rabbitmq = ps_collector.sharedrabbitmq.SharedRabbitMQ(cp)
 
     try:
         while True:

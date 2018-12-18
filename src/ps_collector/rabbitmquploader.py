@@ -1,7 +1,8 @@
 from uploader import Uploader
 # Need to push to Rabbit mq
 import pika
-from sharedrabbitmq import SharedRabbitMQ
+from ps_collector.sharedrabbitmq import SharedRabbitMQ
+import ps_collector
 
 
 
