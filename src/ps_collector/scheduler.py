@@ -1,8 +1,9 @@
 from __future__ import print_function
 
 import functools
-import time
+import logging
 import multiprocessing
+import time
 
 import schedule
 
@@ -14,28 +15,23 @@ import ps_collector
 # The conversion factor from minutes to seconds:
 MINUTE = 60
 
+log = None
+
 class SchedulerState(object):
 
-    def __init__(self, cp, pool):
+    def __init__(self, cp, pool, log):
         self.pool = pool
         self.cp = cp
         self.probes = set()
         self.futures = {}
+        self.log = log
 
-
-def with_logging(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        print('LOG: Running job "%s"' % func.__name__)
-        try:
-            result = func(*args, **kwargs)
-        finally:
-            print('LOG: Job "%s" completed' % func.__name__)
-        return result
-    return wrapper
 
 def query_ps_child(cp, endpoint):
-    print("I query endpoint {}.".format(endpoint))
+    reverse_dns = endpoint.split(".")
+    reverse_dns = ".".join(reverse_dns[::-1])
+    log = logging.getLogger("perfSonar.{}".format(reverse_dns))
+    log.info("I query endpoint {}.".format(endpoint))
     try:
         RabbitMQUploader(connect=endpoint).getData()
     except Exception as ex:
@@ -46,12 +42,11 @@ def query_ps_child(cp, endpoint):
     time.sleep(5)
 
 
-@with_logging
 def query_ps(state, endpoint):
     old_future = state.futures.get(endpoint)
     if old_future:
         if not old_future.ready():
-            print("Prior probe {} is still running; skipping query.".format(endpoint))
+            state.log.info("Prior probe {} is still running; skipping query.".format(endpoint))
             return
         # For now, ignore the result.
         old_future.get()
@@ -60,9 +55,8 @@ def query_ps(state, endpoint):
     state.futures[endpoint] = result
 
 
-@with_logging
 def query_ps_mesh(state):
-    print("Querying PS mesh")
+    state.log.info("Querying PS mesh")
     # TODO: get a list of endpoints from the configured mesh config.
 
     mesh_endpoint = state.cp.get("Mesh", "endpoint")
@@ -103,6 +97,9 @@ def main():
     if cp.has_option("Scheduler", "debug"):
         if cp.get("Scheduler", "debug").lower() == "true":
             MINUTE = 1
+    ps_collector.config.setup_logging(cp)
+    global log
+    log = logging.getLogger("scheduler")
 
     # Initialize the shared RabbitMQ
     shared_rabbitmq = ps_collector.sharedrabbitmq.SharedRabbitMQ(cp)
@@ -112,11 +109,12 @@ def main():
         pool_size = cp.get("Scheduler", "pool_size")
     pool = multiprocessing.Pool(pool_size)
 
-    state = SchedulerState(cp, pool)
+    state = SchedulerState(cp, pool, log)
 
     query_ps_mesh_job = functools.partial(query_ps_mesh, state)
 
     mesh_interval_s = cp.getint("Scheduler", "mesh_interval") * MINUTE
+    log.info("Will update the mesh config every %d seconds.", mesh_interval_s)
     schedule.every(mesh_interval_s).to(mesh_interval_s + MINUTE).seconds.do(query_ps_mesh_job)
 
     try:
