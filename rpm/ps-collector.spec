@@ -14,6 +14,9 @@ Requires(pre): shadow-utils
 BuildRequires:  python2-devel
 BuildRequires:  python-setuptools
 
+BuildRequires: systemd
+%{?systemd_requires}
+
 BuildArch: noarch
 
 # Requires: python2-schedule
@@ -44,10 +47,20 @@ exit 0
 %config %{_sysconfdir}/%{name}/logging-config.ini
 %config(noreplace) %{_sysconfdir}/%{name}/config.d/*
 %attr(-,pscollector,pscollector)  %{_localstatedir}/lib/%{name}
+%{_bindir}/%{name}
+%{_unitdir}/%{name}.service
 
 %{python2_sitelib}/ps_collector
+%{python2_sitelib}/ps_collector-*.egg-info
 
-%post -p /bin/bash
+%post
+%systemd_post ps-collector.service
+
+%preun
+%systemd_preun ps-collector.service
+
+%postun
+%systemd_postun_with_restart ps-collector.service
 
 %changelog
 * Tue Dec 18 2018 Brian Bockelman <bbockelm@cse.unl.edu> - 0.1.0-1
