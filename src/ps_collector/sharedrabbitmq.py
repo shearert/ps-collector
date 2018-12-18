@@ -19,12 +19,12 @@ class SharedRabbitMQ:
         
         credentials = pika.PlainCredentials(self.username, self.password)
         self.parameters = pika.ConnectionParameters(host=self.rabbithost,virtual_host=self.virtual_host,credentials=credentials)
-        self.connection = pika.BlockingConnection(self.parameters)
+        self.conn = pika.BlockingConnection(self.parameters)
         
     def _readConfig(self, option):
         return self.config.get('rabbitmq', option)
 
-    def createChannel():
+    def createChannel(self):
         """
         Create a channel and return it
         """

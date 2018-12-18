@@ -3,7 +3,7 @@ from uploader import Uploader
 import pika
 from sharedrabbitmq import SharedRabbitMQ
 
-global shared_rabbitmq
+
 
 class RabbitMQUploader(Uploader):
     
@@ -17,7 +17,6 @@ class RabbitMQUploader(Uploader):
     def __del__(self):
         if self.channel and self.channel.is_open:
             self.channel.close()
-            self.connection.close()
         
 
     # Publish summaries to Mq
@@ -78,6 +77,7 @@ class RabbitMQUploader(Uploader):
             self.SendMessagetoMQ(msg_body, event)
 
     def postData(self, arguments, event_types, summaries, summaries_data, metadata_key, datapoints):
+        global shared_rabbitmq
         summary= self.summary
         disp = self.debug
         lenght_post = -1
