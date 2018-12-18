@@ -9,8 +9,7 @@ import schedule
 import ps_collector.config
 
 # The conversion factor from minutes to seconds:
-# Temporarily change to 1 to make the query cycles faster when debugging.
-MINUTE = 1
+MINUTE = 60
 
 
 class SchedulerState(object):
@@ -89,7 +88,11 @@ def query_ps_mesh(state):
 
 
 def main():
+    global MINUTE
     cp = ps_collector.config.get_config()
+    if cp.has_option("Scheduler", "debug"):
+        if cp.get("Scheduler", "debug").lower() == "true":
+            MINUTE = 1
 
     pool_size = 5
     if cp.has_option("Scheduler", "pool_size"):
@@ -111,4 +114,3 @@ def main():
         pool.terminate()
         pool.join()
         raise
-
