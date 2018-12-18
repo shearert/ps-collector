@@ -19,8 +19,8 @@ setuptools.setup(name="ps-collector",
                                    'six'],
                  data_files=[('/etc/ps-collector', ['configs/config.ini', 'configs/logging-config.ini']),
                              ('/etc/ps-collector/config.d',  ['configs/10-site-local.ini']),
-                             ('/usr/lib/systemd/system', ['ps-collector.service']),
-                             ('/var/lib/ps-collector', ['ps-collector.state'])
+                             ('/usr/lib/systemd/system', ['configs/ps-collector.service']),
+                             ('/var/lib/ps-collector', ['configs/ps-collector.state'])
                             ]
                
                 )
