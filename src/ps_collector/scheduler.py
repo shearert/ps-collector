@@ -39,7 +39,7 @@ def with_logging(func):
 
 def query_ps_child(cp, endpoint):
     print("I query endpoint {}.".format(endpoint))
-    RabbitMQUploader(connect=endpoint)
+    RabbitMQUploader(connect=endpoint).getData()
     time.sleep(5)
 
 
@@ -64,7 +64,7 @@ def query_ps_mesh(state):
 
     mesh_endpoint = state.cp.get("Mesh", "endpoint")
 
-    endpoints = set(["hcc-ps01.unl.edu", "hcc-ps02.unl.edu"])
+    endpoints = set(["http://hcc-ps01.unl.edu", "http://hcc-ps02.unl.edu"])
 
     running_probes = set(state.probes)
     probes_to_stop = running_probes.difference(endpoints)
