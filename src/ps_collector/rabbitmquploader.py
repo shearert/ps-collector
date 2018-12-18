@@ -3,17 +3,19 @@ from uploader import Uploader
 import pika
 from ps_collector.sharedrabbitmq import SharedRabbitMQ
 import ps_collector
-
+import time
+import json
 
 
 class RabbitMQUploader(Uploader):
     
     def __init__(self, start = 1600, connect = 'iut2-net3.iu.edu',
                  metricName='org.osg.general.perfsonar-rabbitmq-simple',
-                 config = "org.osg.general.perfsonar-rabbitmq-simple.conf"):
+                 config = None):
         Uploader.__init__(self, start, connect, metricName, config)
         
-        self.channel = None
+        self.channel = ps_collector.get_rabbitmq_connection(config).createChannel()
+        self.maxMQmessageSize =  self.readConfigFile('mq-max-message-size')
 
     def __del__(self):
         if self.channel and self.channel.is_open:
@@ -44,7 +46,7 @@ class RabbitMQUploader(Uploader):
         result = None
         for tries in range(5):
             try:
-                result = self.channel.basic_publish(exchange = self.exchange,
+                result = self.channel.basic_publish(exchange = self.readConfigFile('exchange'),
                                                 routing_key = 'perfsonar.raw.' + event,
                                                 body = json.dumps(msg_body), 
                                                 properties = pika.BasicProperties(delivery_mode = 2))
@@ -78,7 +80,6 @@ class RabbitMQUploader(Uploader):
             self.SendMessagetoMQ(msg_body, event)
 
     def postData(self, arguments, event_types, summaries, summaries_data, metadata_key, datapoints):
-        global shared_rabbitmq
         summary= self.summary
         disp = self.debug
         lenght_post = -1
@@ -92,7 +93,7 @@ class RabbitMQUploader(Uploader):
 
         # Now that we know we have data to send, actually connect upstream.
         if self.channel is None:
-            self.channel = shared_rabbitmq.channel()
+            self.channel = ps_collector.get_rabbitmq_connection(self.config).createChannel()
 
         if summaries_data:
             self.add2log("posting new summaries")

@@ -33,7 +33,7 @@ def query_ps_child(cp, endpoint):
     log = logging.getLogger("perfSonar.{}".format(reverse_dns))
     log.info("I query endpoint {}.".format(endpoint))
     try:
-        RabbitMQUploader(connect=endpoint).getData()
+        RabbitMQUploader(connect=endpoint, config=cp).getData()
     except Exception as ex:
         import traceback
         traceback.print_exc()
@@ -91,7 +91,6 @@ def query_ps_mesh(state):
 
 
 def main():
-    global ps_collector.shared_rabbitmq
     global MINUTE
     cp = ps_collector.config.get_config()
     if cp.has_option("Scheduler", "debug"):
@@ -100,9 +99,6 @@ def main():
     ps_collector.config.setup_logging(cp)
     global log
     log = logging.getLogger("scheduler")
-
-    # Initialize the shared RabbitMQ
-    shared_rabbitmq = ps_collector.sharedrabbitmq.SharedRabbitMQ(cp)
 
     pool_size = 5
     if cp.has_option("Scheduler", "pool_size"):
