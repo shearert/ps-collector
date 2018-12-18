@@ -26,12 +26,15 @@ class Uploader(object):
     def add2log(self, log):
         print strftime("%a, %d %b %Y %H:%M:%S", localtime()), str(log)
     
-    def __init__(self, start = 1600, connect = 'iut2-net3.iu.edu', metricName='org.osg.general-perfsonar-simple.conf'):
+    def __init__(self, start = 1600,
+                 connect = 'iut2-net3.iu.edu',
+                 metricName='org.osg.general-perfsonar-simple.conf', 
+                 config = 'org.osg.general-perfsonar-simple.conf'):
         ########################################
         ### New Section to read directly the configuration file                                                                     
         self.metricName =  metricName
-        conf_dir = os.path.join("/", "etc", "rsv", "metrics")
-        self.configFile = os.path.join(conf_dir, metricName + ".conf")
+        #conf_dir = os.path.join("/", "etc", "rsv", "metrics")
+        self.configFile = config
         self.add2log("Configuration File: %s" % self.configFile)
         self.config = ConfigParser.RawConfigParser()
         ########################################        
@@ -84,10 +87,12 @@ class Uploader(object):
     def getDataHourChunks(self, time_start, time_end):
         filters.time_start = time_start
         filters.time_end = time_end
+        print self.connect
         if self.useSSL == True:
             self.conn = SocksSSLApiConnect("https://"+self.connect, filters)
         else:
             self.conn = SocksSSLApiConnect("http://"+self.connect, filters)
+        self.conn = ApiConnect(self.connect, filters)
         metadata = self.conn.get_metadata()
         
         try:

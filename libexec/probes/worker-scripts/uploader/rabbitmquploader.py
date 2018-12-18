@@ -1,11 +1,13 @@
-from uploader import *
+from uploader import Uploader
 # Need to push to Rabbit mq
 import pika
 
 class RabbitMQUploader(Uploader):
     
-    def __init__(self, start = 1600, connect = 'iut2-net3.iu.edu', metricName='org.osg.general-perfsonar-simple.conf'):
-        Uploader.__init__(self, start, connect, metricName)
+    def __init__(self, start = 1600, connect = 'iut2-net3.iu.edu',
+                 metricName='org.osg.general.perfsonar-rabbitmq-simple',
+                 config = "org.osg.general.perfsonar-rabbitmq-simple.conf"):
+        Uploader.__init__(self, start, connect, metricName, config)
         self.maxMQmessageSize =  self.readConfigFile('mq-max-message-size')
         self.username = self.readConfigFile('username')
         self.password = self.readConfigFile('password')
