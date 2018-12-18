@@ -94,11 +94,8 @@ def query_ps_mesh(state):
 
 
 def main():
-<<<<<<< HEAD
     global shared_rabbitmq
-=======
     global MINUTE
->>>>>>> a6d6acdee0ea2e9f8037e0198e58959420cb4ce8
     cp = ps_collector.config.get_config()
     if cp.has_option("Scheduler", "debug"):
         if cp.get("Scheduler", "debug").lower() == "true":
