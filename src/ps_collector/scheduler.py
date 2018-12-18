@@ -6,10 +6,14 @@ import time
 import schedule
 
 import ps_collector.config
+import ps_collector.sharedrabbitmq
 
 # The conversion factor from minutes to seconds:
 # Temporarily change to 1 to make the query cycles faster when debugging.
 MINUTE = 1
+
+# Global shared RabbitMQ connection
+shared_rabbitmq = None
 
 
 def with_logging(func):
@@ -37,11 +41,15 @@ def query_ps_mesh(cp):
 
 
 def main():
+    global shared_rabbitmq
     cp = ps_collector.config.get_config()
     query_ps_mesh_job = functools.partial(query_ps_mesh, cp)
 
     mesh_interval_s = cp.getint("Scheduler", "mesh_interval") * MINUTE
     schedule.every(mesh_interval_s).to(mesh_interval_s + MINUTE).seconds.do(query_ps_mesh_job)
+
+    # Initialize the shared RabbitMQ
+    shared_rabbitmq = ps_collector.sharedrabbitmq.SharedRabbitMQ(cp)
 
     while True:
         schedule.run_pending()

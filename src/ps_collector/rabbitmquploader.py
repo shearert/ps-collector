@@ -1,6 +1,9 @@
 from uploader import Uploader
 # Need to push to Rabbit mq
 import pika
+from sharedrabbitmq import SharedRabbitMQ
+
+global shared_rabbitmq
 
 class RabbitMQUploader(Uploader):
     
@@ -8,22 +11,8 @@ class RabbitMQUploader(Uploader):
                  metricName='org.osg.general.perfsonar-rabbitmq-simple',
                  config = "org.osg.general.perfsonar-rabbitmq-simple.conf"):
         Uploader.__init__(self, start, connect, metricName, config)
-        self.maxMQmessageSize =  self.readConfigFile('mq-max-message-size')
-        self.username = self.readConfigFile('username')
-        self.password = self.readConfigFile('password')
-        self.rabbithost = self.readConfigFile('rabbit_host')
-        self.virtual_host = self.readConfigFile('virtual_host')
-        self.queue = self.readConfigFile('queue')
-        self.exchange = self.readConfigFile('exchange')
-        self.routing_key = self.readConfigFile('routing_key')
-        self.connection = None
+        
         self.channel = None
-        try:
-            credentials = pika.PlainCredentials(self.username, self.password)
-            self.parameters = pika.ConnectionParameters(host=self.rabbithost,virtual_host=self.virtual_host,credentials=credentials)
-            self.ch_prop = pika.BasicProperties(delivery_mode = 2) #Make message persistent
-        except Exception as e:
-            self.add2log("ERROR: Unable to create dirq channgel, exception was %s, " % (repr(e)))
 
     def __del__(self):
         if self.channel and self.channel.is_open:
@@ -58,7 +47,7 @@ class RabbitMQUploader(Uploader):
                 result = self.channel.basic_publish(exchange = self.exchange,
                                                 routing_key = 'perfsonar.raw.' + event,
                                                 body = json.dumps(msg_body), 
-                                                properties = self.ch_prop)
+                                                properties = pika.BasicProperties(delivery_mode = 2))
                 break
                 if not result:
                     raise Exception('ERROR: Exception publishing to rabbit MQ', 'Problem publishing to mq')
@@ -86,22 +75,7 @@ class RabbitMQUploader(Uploader):
             arguments['ts_start'] = ts_start
             msg_body = { 'meta': arguments }
             msg_body['datapoints'] = datapoints[event]
-            self.SendMessagetoMQ(msg_body, event)
-            
-    def restartPikaConnection(self):
-        if self.channel and self.channel.is_open:
-            try:
-                self.channel.close()
-            except Exception as e:
-                self.add2log("Failed to close the channel exception was %s" % (repr(e)))
-        if self.connection and self.connection.is_open:
-            try:
-                self.connection.close()
-            except Exception as e:
-                self.add2log("Failed to close the connection exception was %s" % (repr(e)))
-        self.connection = pika.BlockingConnection(self.parameters)
-        self.channel = self.connection.channel()
-
+            self.SendMessagetoMQ(msg_body, event)s
 
     def postData(self, arguments, event_types, summaries, summaries_data, metadata_key, datapoints):
         summary= self.summary
@@ -116,12 +90,8 @@ class RabbitMQUploader(Uploader):
             return
 
         # Now that we know we have data to send, actually connect upstream.
-        if self.connection is None:
-            try:
-                self.restartPikaConnection()
-            except Exception as e:
-                self.add2log("Unable to create channel to RabbitMQ, exception was %s" % repr(e))
-                return
+        if self.channel is None:
+            self.channel = shared_rabbitmq.channel()
 
         if summaries_data:
             self.add2log("posting new summaries")
