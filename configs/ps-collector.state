@@ -1,0 +1,6 @@
+
+NOTE:
+
+This directory contains the state files for the ps-collector service.
+They record the last successful timestamp of data collected by the service,
+hashed by the name of the remote perfSonar endpoint.
