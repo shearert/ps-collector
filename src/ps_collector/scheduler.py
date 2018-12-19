@@ -10,6 +10,7 @@ import schedule
 import ps_collector.config
 import ps_collector.sharedrabbitmq
 from ps_collector.rabbitmquploader import RabbitMQUploader
+from ps_collector.mesh import Mesh
 import ps_collector
 
 # The conversion factor from minutes to seconds:
@@ -54,7 +55,9 @@ def query_ps_mesh(state):
 
     mesh_endpoint = state.cp.get("Mesh", "endpoint")
 
-    endpoints = set(["http://hcc-ps01.unl.edu", "http://hcc-ps02.unl.edu"])
+    mesh = Mesh(state.cp.get("Mesh", "endpoint"))
+    endpoints = mesh.get_nodes()
+    #endpoints = set(["http://hcc-ps01.unl.edu", "http://hcc-ps02.unl.edu"])
 
     running_probes = set(state.probes)
     probes_to_stop = running_probes.difference(endpoints)
