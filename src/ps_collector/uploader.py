@@ -10,7 +10,7 @@ from time import localtime
 
 # Using the esmond_client instead of the rpm
 from esmond_client.perfsonar.query import ApiFilters
-from esmond_client.perfsonar.query import ApiConnect
+from esmond_client.perfsonar.query import ApiConnect, ApiConnectWarning
 
 # New module with socks5 OR SSL connection that inherits ApiConnect
 from SocksSSLApiConnect import SocksSSLApiConnect
@@ -83,13 +83,20 @@ class Uploader(object):
     def getDataHourChunks(self, time_start, time_end):
         filters.time_start = time_start
         filters.time_end = time_end
-        print self.connect
-        if self.useSSL == True:
-            self.conn = SocksSSLApiConnect("https://"+self.connect, filters)
-        else:
-            self.conn = SocksSSLApiConnect("http://"+self.connect, filters)
-        self.conn = ApiConnect(self.connect, filters)
-        metadata = self.conn.get_metadata()
+
+        # Do we have to use Socks?
+        #if self.useSSL == True:
+        #    self.conn = SocksSSLApiConnect("https://"+self.connect, filters)
+        #else:
+        #    self.conn = SocksSSLApiConnect("http://"+self.connect, filters)
+        self.conn = None
+        metadata = None
+        try:
+            self.conn = ApiConnect("http://" + self.connect, filters)
+            metadata = self.conn.get_metadata()
+        except ApiConnectWarning as apiwarning:
+            self.log.exception("Unable to connect to host")
+            return
         
         try:
             #Test to see if https connection is succesfull                                                                                             
@@ -101,15 +108,19 @@ class Uploader(object):
         except ConnectionError as e:
             #Test to see if https connection is sucesful                                                                                               
             self.log.exception("Unable to connect to %s, exception was %s, trying SSL" % ("http://"+self.connect, type(e)))
-            try:
-                metadata = self.conn.get_metadata(cert=self.cert, key=self.certkey)
-                md = metadata.next()
-                self.useSSL = True
-                self.readMetaData(md)
-            except  StopIteration:
-                self.log.warning("There is no metadat in this time range")
-            except  ConnectionError as e:
-                raise Exception("Unable to connect to %s, exception was %s, " % ("https://"+self.connect, type(e)))
+            #try:
+            #    metadata = self.conn.get_metadata(cert=self.cert, key=self.certkey)
+            #    md = metadata.next()
+            #    self.useSSL = True
+            #    self.readMetaData(md)
+            #except  StopIteration:
+            #    self.log.warning("There is no metadat in this time range")
+            #except  ConnectionError as e:
+            #    raise Exception("Unable to connect to %s, exception was %s, " % ("https://"+self.connect, type(e)))
+        except Exception as e:
+            self.log.exception("Failed to read metadata")
+            return
+
         for md in metadata:
             self.readMetaData(md)
 
@@ -224,6 +235,7 @@ class Uploader(object):
  
     # Experimental function to try to recover from missing packet-count-sent or packet-count-lost data
     def getMissingData(self, timestamp, metadata_key, event_type):
+        self.log.info("Trying to get missing data")
         disp = self.debug
         filtersEsp = ApiFilters()
         filtersEsp.verbose = disp
@@ -231,10 +243,10 @@ class Uploader(object):
         filtersEsp.time_start = timestamp - 30000
         filtersEsp.time_end  = timestamp + 30000 
         conn = SocksSSLApiConnect("http://"+self.connect, filtersEsp)
-        if self.useSSL:
-            metadata = conn.get_metadata(cert=self.cert, key=self.certkey)
-        else:
-            metadata = conn.get_metadata()
+        #if self.useSSL:
+        #    metadata = conn.get_metadata(cert=self.cert, key=self.certkey)
+        #else:
+        metadata = conn.get_metadata()
         datapoints = {}
         datapoints[event_type] = {}
         for md in metadata:

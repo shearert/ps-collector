@@ -38,7 +38,7 @@ class Mesh:
             try:
                 nodes.update(test['members']['members'])
             except KeyError as ke:
-                print("Failed to load nodes from mesh url: %s and test: %s", mesh_url, test['members']['type'])
+                print("Failed to load nodes from mesh url: %s and test: %s" % (mesh_url, test['members']['type']))
 
         return nodes
 

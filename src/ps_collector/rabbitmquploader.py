@@ -7,6 +7,7 @@ import time
 import json
 import tempfile
 import os
+import errno
 
 class RabbitMQUploader(Uploader):
     
@@ -126,6 +127,13 @@ class RabbitMQUploader(Uploader):
         """
         Perform an atomic write to the checkpoint file
         """
+        # Make sure that the directory exists
+        try:
+            os.makedirs(self.tmpDir)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+
         # Open a temporary file
         (file_handle, tmp_filename) = tempfile.mkstemp(dir=self.tmpDir)
         wrapped_file = os.fdopen(file_handle, 'w')
