@@ -1,6 +1,5 @@
 
 import pika
-from configparser import ConfigParser
 
 
 # Singleton from:

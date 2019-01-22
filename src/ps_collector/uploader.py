@@ -34,7 +34,7 @@ class Uploader(object):
         self.metricName =  metricName
         #conf_dir = os.path.join("/", "etc", "rsv", "metrics")
         ########################################        
-        self.debug = self.str2bool(self.readConfigFile('debug'))
+        self.debug = self.str2bool(self.readConfigFile('debug', "false"))
         verbose = self.debug
         # Filter variables
         filters.verbose = verbose
@@ -267,13 +267,13 @@ class Uploader(object):
     def postData(self, arguments, event_types, summaries, summaries_data, metadata_key, datapoints):
         pass
 
-    def readConfigFile(self, key):
+    def readConfigFile(self, key, default = ""):
         section = self.metricName + " args"
         try:
             return self.config.get(section, key)
         except ConfigParser.NoOptionError:
-            self.log.exception("ERROR: config knob %s not found in file: %s"% (key, self.configFile))
-            raise Exception("ERROR: config knob %s not found in file: %s"% (key, self.configFile))
+            self.log.warning("Error getting key: %s from config file", key)
+            return default
             
 
     def str2bool(self,word):

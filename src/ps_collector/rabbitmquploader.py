@@ -20,6 +20,7 @@ class RabbitMQUploader(Uploader):
         self.maxMQmessageSize =  self.readConfigFile('mq-max-message-size')
 
     def __del__(self):
+        self.log.exception("Del odd")
         if self.channel and self.channel.is_open:
             self.channel.close()
         
