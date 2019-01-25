@@ -64,7 +64,7 @@ def query_ps_mesh(state):
     probes_to_start = endpoints.difference(running_probes)
 
     for probe in probes_to_stop:
-        state.probes.remote(probe)
+        state.probes.remove(probe)
         scheduler.clear(probe)
         future = self.futures.get(probe)
         if not future:
