@@ -57,16 +57,17 @@ def query_ps_mesh(state):
 
     mesh = Mesh(state.cp.get("Mesh", "endpoint"))
     endpoints = mesh.get_nodes()
-    #endpoints = set(["http://hcc-ps01.unl.edu", "http://hcc-ps02.unl.edu"])
+    state.log.info("Nodes: %s", endpoints)
 
     running_probes = set(state.probes)
     probes_to_stop = running_probes.difference(endpoints)
     probes_to_start = endpoints.difference(running_probes)
 
     for probe in probes_to_stop:
+        state.log.debug("Stopping probe: %s", probe)
         state.probes.remove(probe)
-        scheduler.clear(probe)
-        future = self.futures.get(probe)
+        schedule.clear(probe)
+        future = state.futures.get(probe)
         if not future:
             continue
         future.wait()
@@ -74,6 +75,7 @@ def query_ps_mesh(state):
     default_probe_interval = state.cp.getint("Scheduler", "probe_interval") * MINUTE
 
     for probe in probes_to_start:
+        state.log.debug("Adding probe: %s", probe)
         state.probes.add(probe)
         probe_interval = default_probe_interval
         if state.cp.has_section(probe) and state.cp.has_option("interval"):
@@ -81,6 +83,8 @@ def query_ps_mesh(state):
         probe_interval *= MINUTE
 
         query_ps_job = functools.partial(query_ps, state, probe)
+        # Run the probe the first time
+        query_ps_job()
         schedule.every(probe_interval).to(probe_interval + MINUTE).seconds.do(query_ps_job).tag(probe)
 
     time.sleep(5)
@@ -102,6 +106,9 @@ def main():
     pool = multiprocessing.Pool(pool_size)
 
     state = SchedulerState(cp, pool, log)
+
+    # Query the mesh the first time
+    query_ps_mesh(state)
 
     query_ps_mesh_job = functools.partial(query_ps_mesh, state)
 

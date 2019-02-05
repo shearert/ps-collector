@@ -15,6 +15,9 @@ class SharedRabbitMQ:
         self.queue = self._readConfig('queue')
         self.exchange = self._readConfig('exchange')
         self.routing_key = self._readConfig('routing_key')
+        self.createConection()
+
+    def createConection(self):
         
         credentials = pika.PlainCredentials(self.username, self.password)
         self.parameters = pika.ConnectionParameters(host=self.rabbithost,virtual_host=self.virtual_host,credentials=credentials)
@@ -27,6 +30,8 @@ class SharedRabbitMQ:
         """
         Create a channel and return it
         """
+        if not self.conn.is_open:
+            self.createConection()
         return self.conn.channel()
 
 
