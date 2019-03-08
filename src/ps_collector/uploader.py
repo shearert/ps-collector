@@ -85,18 +85,19 @@ class Uploader(object):
         filters.time_end = time_end
 
         # Do we have to use Socks?
-        #if self.useSSL == True:
-        #    self.conn = SocksSSLApiConnect("https://"+self.connect, filters)
-        #else:
-        #    self.conn = SocksSSLApiConnect("http://"+self.connect, filters)
-        self.conn = None
-        metadata = None
-        try:
-            self.conn = ApiConnect("http://" + self.connect, filters)
-            metadata = self.conn.get_metadata()
-        except ApiConnectWarning as apiwarning:
-            self.log.exception("Unable to connect to host")
-            return
+        if self.useSSL == True:
+            self.conn = SocksSSLApiConnect("https://"+self.connect, filters)
+        else:
+            self.conn = SocksSSLApiConnect("http://"+self.connect, filters)
+        metadata = self.conn.get_metadata()
+        #self.conn = None
+        #metadata = None
+        #try:
+        #    self.conn = ApiConnect("http://" + self.connect, filters)
+        #    metadata = self.conn.get_metadata()
+        #except ApiConnectWarning as apiwarning:
+        #    self.log.exception("Unable to connect to host")
+        #    return
         
         try:
             #Test to see if https connection is succesfull                                                                                             
@@ -108,15 +109,15 @@ class Uploader(object):
         except ConnectionError as e:
             #Test to see if https connection is sucesful                                                                                               
             self.log.exception("Unable to connect to %s, exception was %s, trying SSL" % ("http://"+self.connect, type(e)))
-            #try:
-            #    metadata = self.conn.get_metadata(cert=self.cert, key=self.certkey)
-            #    md = metadata.next()
-            #    self.useSSL = True
-            #    self.readMetaData(md)
-            #except  StopIteration:
-            #    self.log.warning("There is no metadat in this time range")
-            #except  ConnectionError as e:
-            #    raise Exception("Unable to connect to %s, exception was %s, " % ("https://"+self.connect, type(e)))
+            try:
+                metadata = self.conn.get_metadata(cert=self.cert, key=self.certkey)
+                md = metadata.next()
+                self.useSSL = True
+                self.readMetaData(md)
+            except  StopIteration:
+                self.log.warning("There is no metadata in this time range")
+            except  ConnectionError as e:
+                raise Exception("Unable to connect to %s, exception was %s, " % ("https://"+self.connect, type(e)))
         except Exception as e:
             self.log.exception("Failed to read metadata")
             return
@@ -243,10 +244,10 @@ class Uploader(object):
         filtersEsp.time_start = timestamp - 30000
         filtersEsp.time_end  = timestamp + 30000 
         conn = SocksSSLApiConnect("http://"+self.connect, filtersEsp)
-        #if self.useSSL:
-        #    metadata = conn.get_metadata(cert=self.cert, key=self.certkey)
-        #else:
-        metadata = conn.get_metadata()
+        if self.useSSL:
+            metadata = conn.get_metadata(cert=self.cert, key=self.certkey)
+        else:
+            metadata = conn.get_metadata()
         datapoints = {}
         datapoints[event_type] = {}
         for md in metadata:

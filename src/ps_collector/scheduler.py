@@ -43,7 +43,10 @@ def query_ps(state, endpoint):
             state.log.info("Prior probe {} is still running; skipping query.".format(endpoint))
             return
         # For now, ignore the result.
-        old_future.get()
+        try:
+            old_future.get()
+        except Exception as e:
+            state.log.exception("Failed to get data last time:")
 
     result = state.pool.apply_async(query_ps_child, (state.cp, endpoint))
     state.futures[endpoint] = result
@@ -79,8 +82,7 @@ def query_ps_mesh(state):
         state.probes.add(probe)
         probe_interval = default_probe_interval
         if state.cp.has_section(probe) and state.cp.has_option("interval"):
-            probe_interval = state.cp.get(probe, "interval")
-        probe_interval *= MINUTE
+            probe_interval = state.cp.getint(probe, "interval") * MINUTE
 
         query_ps_job = functools.partial(query_ps, state, probe)
         # Run the probe the first time
@@ -88,6 +90,7 @@ def query_ps_mesh(state):
         schedule.every(probe_interval).to(probe_interval + MINUTE).seconds.do(query_ps_job).tag(probe)
 
     time.sleep(5)
+    logging.debug("Finished querying mesh")
 
 
 def main():
@@ -102,7 +105,7 @@ def main():
 
     pool_size = 5
     if cp.has_option("Scheduler", "pool_size"):
-        pool_size = cp.get("Scheduler", "pool_size")
+        pool_size = cp.getint("Scheduler", "pool_size")
     pool = multiprocessing.Pool(pool_size)
 
     state = SchedulerState(cp, pool, log)
