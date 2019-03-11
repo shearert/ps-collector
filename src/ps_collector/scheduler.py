@@ -39,6 +39,7 @@ class SchedulerState(object):
 
 IN_PROGRESS = Gauge("ps_inprogress_requests", "Number of requests queued or running")
 request_summary = Summary('ps_request_latency_seconds', 'How long the request to the remote perfsonar took', ['endpoint'])
+NUM_ENDPOINTS = Gauge("ps_num_endpoint", "How many endpoints are being queried")
 
 def query_ps_child(cp, endpoint):
     reverse_dns = endpoint.split(".")
@@ -48,7 +49,6 @@ def query_ps_child(cp, endpoint):
     with timed_execution(endpoint, communication_queue):
         RabbitMQUploader(connect=endpoint, config=cp, log = log).getData()
 
-
 def query_ps(state, endpoint):
     old_future = state.futures.get(endpoint)
     if old_future:
@@ -57,7 +57,6 @@ def query_ps(state, endpoint):
             return
         # For now, ignore the result.
         try:
-            IN_PROGRESS.dec()
             old_future.get()
         except Exception as e:
             state.log.exception("Failed to get data last time:")
@@ -83,6 +82,7 @@ def query_ps_mesh(state):
 
     for probe in probes_to_stop:
         state.log.debug("Stopping probe: %s", probe)
+        NUM_ENDPOINTS.dec()
         state.probes.remove(probe)
         schedule.clear(probe)
         future = state.futures.get(probe)
@@ -94,6 +94,7 @@ def query_ps_mesh(state):
 
     for probe in probes_to_start:
         state.log.debug("Adding probe: %s", probe)
+        NUM_ENDPOINTS.inc()
         state.probes.add(probe)
         probe_interval = default_probe_interval
         if state.cp.has_section(probe) and state.cp.has_option("interval"):
@@ -107,6 +108,19 @@ def query_ps_mesh(state):
     time.sleep(5)
     logging.debug("Finished querying mesh")
 
+
+def cleanup_futures(state):
+    # Loop through the futures, cleaning up those that are done, and dec the gauge
+    for endpoint in state.futures:
+        cur_future = state.futures[endpoint]
+        if cur_future:
+            if cur_future.ready():
+                try:
+                    cur_future.get()
+                except Exception as e:
+                    state.log.exception("Failed to get data last time for endpoint {0}:".format(endpoint))
+                state.futures[endpoint] = None
+                IN_PROGRESS.dec()
 
 def main():
     global MINUTE
@@ -129,10 +143,13 @@ def main():
     query_ps_mesh(state)
 
     query_ps_mesh_job = functools.partial(query_ps_mesh, state)
+    cleanup_futures_job = functools.partial(cleanup_futures, state)
 
     mesh_interval_s = cp.getint("Scheduler", "mesh_interval") * MINUTE
     log.info("Will update the mesh config every %d seconds.", mesh_interval_s)
     schedule.every(mesh_interval_s).to(mesh_interval_s + MINUTE).seconds.do(query_ps_mesh_job)
+
+    schedule.every(10).seconds.do(cleanup_futures_job)
 
     # Start the prometheus webserver
     start_http_server(8000)
