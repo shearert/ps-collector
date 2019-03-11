@@ -3,20 +3,29 @@ from __future__ import print_function
 import functools
 import logging
 import multiprocessing
+from multiprocessing import Queue
+import Queue
 import time
 
 import schedule
+from prometheus_client import Summary, Gauge
+from prometheus_client import start_http_server
+
 
 import ps_collector.config
 import ps_collector.sharedrabbitmq
 from ps_collector.rabbitmquploader import RabbitMQUploader
 from ps_collector.mesh import Mesh
 import ps_collector
+from ps_collector.monitoring import timed_execution
 
 # The conversion factor from minutes to seconds:
 MINUTE = 60
 
 log = None
+
+communication_manager = multiprocessing.Manager()
+communication_queue = communication_manager.Queue()
 
 class SchedulerState(object):
 
@@ -28,12 +37,16 @@ class SchedulerState(object):
         self.log = log
 
 
+IN_PROGRESS = Gauge("ps_inprogress_requests", "Number of requests queued or running")
+request_summary = Summary('ps_request_latency_seconds', 'How long the request to the remote perfsonar took', ['endpoint'])
+
 def query_ps_child(cp, endpoint):
     reverse_dns = endpoint.split(".")
     reverse_dns = ".".join(reverse_dns[::-1])
     log = logging.getLogger("perfSonar.{}".format(reverse_dns))
     log.info("I query endpoint {}.".format(endpoint))
-    RabbitMQUploader(connect=endpoint, config=cp, log = log).getData()
+    with timed_execution(endpoint, communication_queue):
+        RabbitMQUploader(connect=endpoint, config=cp, log = log).getData()
 
 
 def query_ps(state, endpoint):
@@ -44,11 +57,13 @@ def query_ps(state, endpoint):
             return
         # For now, ignore the result.
         try:
+            IN_PROGRESS.dec()
             old_future.get()
         except Exception as e:
             state.log.exception("Failed to get data last time:")
 
     result = state.pool.apply_async(query_ps_child, (state.cp, endpoint))
+    IN_PROGRESS.inc()
     state.futures[endpoint] = result
 
 
@@ -119,10 +134,18 @@ def main():
     log.info("Will update the mesh config every %d seconds.", mesh_interval_s)
     schedule.every(mesh_interval_s).to(mesh_interval_s + MINUTE).seconds.do(query_ps_mesh_job)
 
+    # Start the prometheus webserver
+    start_http_server(8000)
     try:
         while True:
             schedule.run_pending()
-            time.sleep(1)
+            while True:
+                try: 
+                    item = communication_queue.get(True, 1)
+                    print("Got from queue: {0}".format(item))
+                    request_summary.labels(item[0]).observe(item[1])
+                except Queue.Empty:
+                    break
     except:
         pool.terminate()
         pool.join()
