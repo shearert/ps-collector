@@ -38,9 +38,7 @@ class Mesh:
                 for host in site.get('hosts', []):
                     for url in host.get('measurement_archives', []):
                         parsed = urlparse(url['read_url'])
-                        print(parsed.netloc)
                         nodes.update([parsed.netloc])
-                        print(url['read_url'])
         return nodes
 
     def _download_toplevel(self):
