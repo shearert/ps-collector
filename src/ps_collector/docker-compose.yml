@@ -1,0 +1,12 @@
+version: '3'
+services:
+  perfsonar:
+    build: .
+    volumes:
+    - ./config.d:/etc/ps-collector/config.d
+    - /etc/grid-security/rsv/rsvcert.pem:/etc/grid-security/ps_collector/cert.pem
+    - /etc/grid-security/rsv/rsvkey.pem:/etc/grid-security/ps_collector/key.pem
+    - /var/lib/ps-collector:/var/lib/ps-collector
+    restart: always
+    ports:
+    - "8000:8000"
