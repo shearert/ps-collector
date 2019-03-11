@@ -75,7 +75,7 @@ class Uploader(object):
         if summary:
             self.log.info("Reading Summaries")
         else:
-            self.log.info("Omiting Sumaries")
+            self.log.info("Omitting Summaries")
         period = 3600
         for new_time_start in range(self.time_start, self.time_end, period):
              self.getDataHourChunks(new_time_start, new_time_start + period)
