@@ -56,10 +56,21 @@ def query_ps_child(cp, endpoint):
         res = p.apply_async(uploader.getData)
         try:
             out = res.get(timeout)  # Wait timeout seconds for func to complete.
+            p.close()
+            p.join()
+            del p
             return out
         except multiprocessing.TimeoutError:
             print("Aborting due to timeout")
             p.terminate()
+            p.join()
+            del p
+            raise
+        except Exception as e:
+            log.exception("Failed to get data last time")
+            p.close()
+            p.join()
+            del p
             raise
 
 def query_ps(state, endpoint):
