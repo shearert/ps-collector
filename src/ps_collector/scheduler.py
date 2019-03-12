@@ -4,6 +4,7 @@ import functools
 import logging
 import multiprocessing
 from multiprocessing import Queue
+from multiprocessing.dummy import Pool as ThreadPool
 import Queue
 import time
 
@@ -47,7 +48,19 @@ def query_ps_child(cp, endpoint):
     log = logging.getLogger("perfSonar.{}".format(reverse_dns))
     log.info("I query endpoint {}.".format(endpoint))
     with timed_execution(endpoint, communication_queue):
-        RabbitMQUploader(connect=endpoint, config=cp, log = log).getData()
+        uploader = RabbitMQUploader(connect=endpoint, config=cp, log = log)
+        # Use a threading timeout
+        # https://stackoverflow.com/questions/29494001/how-can-i-abort-a-task-in-a-multiprocessing-pool-after-a-timeout
+        timeout = cp.getint("Scheduler", "query_timeout") * MINUTE
+        p = ThreadPool(1)
+        res = p.apply_async(uploader.getData)
+        try:
+            out = res.get(timeout)  # Wait timeout seconds for func to complete.
+            return out
+        except multiprocessing.TimeoutError:
+            print("Aborting due to timeout")
+            p.terminate()
+            raise
 
 def query_ps(state, endpoint):
     old_future = state.futures.get(endpoint)
