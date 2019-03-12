@@ -3,13 +3,11 @@ from __future__ import print_function
 import functools
 import logging
 import multiprocessing
-from multiprocessing import Queue
 from multiprocessing.dummy import Pool as ThreadPool
-import Queue
+
 import time
 
 import schedule
-from prometheus_client import Summary, Gauge
 from prometheus_client import start_http_server
 
 
@@ -18,15 +16,14 @@ import ps_collector.sharedrabbitmq
 from ps_collector.rabbitmquploader import RabbitMQUploader
 from ps_collector.mesh import Mesh
 import ps_collector
-from ps_collector.monitoring import timed_execution
+from ps_collector.monitoring import timed_execution, Monitoring
 
 # The conversion factor from minutes to seconds:
 MINUTE = 60
 
 log = None
 
-communication_manager = multiprocessing.Manager()
-communication_queue = communication_manager.Queue()
+
 
 class SchedulerState(object):
 
@@ -38,16 +35,13 @@ class SchedulerState(object):
         self.log = log
 
 
-IN_PROGRESS = Gauge("ps_inprogress_requests", "Number of requests queued or running")
-request_summary = Summary('ps_request_latency_seconds', 'How long the request to the remote perfsonar took', ['endpoint'])
-NUM_ENDPOINTS = Gauge("ps_num_endpoint", "How many endpoints are being queried")
 
 def query_ps_child(cp, endpoint):
     reverse_dns = endpoint.split(".")
     reverse_dns = ".".join(reverse_dns[::-1])
     log = logging.getLogger("perfSonar.{}".format(reverse_dns))
     log.info("I query endpoint {}.".format(endpoint))
-    with timed_execution(endpoint, communication_queue):
+    with timed_execution(endpoint):
         uploader = RabbitMQUploader(connect=endpoint, config=cp, log = log)
         # Use a threading timeout
         # https://stackoverflow.com/questions/29494001/how-can-i-abort-a-task-in-a-multiprocessing-pool-after-a-timeout
@@ -62,11 +56,13 @@ def query_ps_child(cp, endpoint):
             return out
         except multiprocessing.TimeoutError:
             print("Aborting due to timeout")
+            Monitoring.SendEndpointFailure(endpoint)
             p.terminate()
             p.join()
             del p
             raise
         except Exception as e:
+            Monitoring.SendEndpointFailure(endpoint)
             log.exception("Failed to get data last time")
             p.close()
             p.join()
@@ -86,7 +82,7 @@ def query_ps(state, endpoint):
             state.log.exception("Failed to get data last time:")
 
     result = state.pool.apply_async(query_ps_child, (state.cp, endpoint))
-    IN_PROGRESS.inc()
+    Monitoring.IncRequestsPending()
     state.futures[endpoint] = result
 
 
@@ -106,7 +102,7 @@ def query_ps_mesh(state):
 
     for probe in probes_to_stop:
         state.log.debug("Stopping probe: %s", probe)
-        NUM_ENDPOINTS.dec()
+        Monitoring.DecNumEndpoints()
         state.probes.remove(probe)
         schedule.clear(probe)
         future = state.futures.get(probe)
@@ -118,7 +114,7 @@ def query_ps_mesh(state):
 
     for probe in probes_to_start:
         state.log.debug("Adding probe: %s", probe)
-        NUM_ENDPOINTS.inc()
+        Monitoring.IncNumEndpoints()
         state.probes.add(probe)
         probe_interval = default_probe_interval
         if state.cp.has_section(probe) and state.cp.has_option("interval"):
@@ -175,18 +171,15 @@ def main():
 
     schedule.every(10).seconds.do(cleanup_futures_job)
 
+    monitor = Monitoring()
     # Start the prometheus webserver
     start_http_server(8000)
     try:
         while True:
             schedule.run_pending()
-            while True:
-                try: 
-                    item = communication_queue.get(True, 1)
-                    print("Got from queue: {0}".format(item))
-                    request_summary.labels(item[0]).observe(item[1])
-                except Queue.Empty:
-                    break
+            monitor.process_messages()
+            time.sleep(1)
+
     except:
         pool.terminate()
         pool.join()
