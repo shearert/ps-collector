@@ -1,9 +1,0 @@
-[org.osg.general.perfsonar-rabbitmq-simple]
-default-cron-interval = */10 * * * *
-execute = local
-service-type = Perfsonar-Monitor
-output-format = brief
-enable-by-default = False
-description = Uploads the information to myosg of a perfsonar ndoe
-need-proxy = False
-[org.osg.general.perfsonar-rabbitmq-simple env]
