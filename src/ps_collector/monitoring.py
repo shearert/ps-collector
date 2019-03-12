@@ -24,7 +24,7 @@ class Monitoring(object):
     def process_messages(self):
         while True:
             try:
-                item = communication_queue.get()        
+                item = communication_queue.get(False)        
                 print("Got from queue: {0}".format(item))
                 if item[0] == Monitoring.QUERY_ELASPED_TYPE:
                     request_summary.labels(item[1]).observe(item[2])
