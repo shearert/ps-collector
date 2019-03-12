@@ -4,7 +4,7 @@ PS Collector
 
 The PS Collector queries [perfSONAR](https://www.perfsonar.net/) instances and sends the data onto a RabbitMQ message bus.
 
-The collector is packages in a docker conatiner available at:
+The collector is packages in a docker conatiner available on [DockerHub](https://cloud.docker.com/u/sandci/repository/docker/sandci/ps-collector)
 
 
 ## Configuration

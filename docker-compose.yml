@@ -1,7 +1,7 @@
 version: '3'
 services:
   perfsonar:
-    build: .
+    image: sandci/ps-collector
     volumes:
     - ./config.d:/etc/ps-collector/config.d
     - /etc/grid-security/rsv/rsvcert.pem:/etc/grid-security/ps_collector/cert.pem
