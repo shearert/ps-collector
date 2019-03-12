@@ -80,6 +80,8 @@ def query_ps(state, endpoint):
             old_future.get()
         except Exception as e:
             state.log.exception("Failed to get data last time:")
+        finally:
+            Monitoring.DecRequestsPending()
 
     result = state.pool.apply_async(query_ps_child, (state.cp, endpoint))
     Monitoring.IncRequestsPending()
@@ -140,7 +142,7 @@ def cleanup_futures(state):
                 except Exception as e:
                     state.log.exception("Failed to get data last time for endpoint {0}:".format(endpoint))
                 state.futures[endpoint] = None
-                IN_PROGRESS.dec()
+                Monitoring.DecRequestsPending()
 
 def main():
     global MINUTE
