@@ -10,6 +10,9 @@ import time
 import schedule
 from prometheus_client import start_http_server
 
+# Use pebble because it has timeouts for the schedule
+import pebble
+
 
 import ps_collector.config
 import ps_collector.sharedrabbitmq
@@ -43,47 +46,26 @@ def query_ps_child(cp, endpoint):
     log.info("I query endpoint {}.".format(endpoint))
     with timed_execution(endpoint):
         uploader = RabbitMQUploader(connect=endpoint, config=cp, log = log)
-        # Use a threading timeout
-        # https://stackoverflow.com/questions/29494001/how-can-i-abort-a-task-in-a-multiprocessing-pool-after-a-timeout
-        timeout = cp.getint("Scheduler", "query_timeout") * MINUTE
-        p = ThreadPool(1)
-        res = p.apply_async(uploader.getData)
-        try:
-            out = res.get(timeout)  # Wait timeout seconds for func to complete.
-            p.close()
-            p.join()
-            del p
-            return out
-        except multiprocessing.TimeoutError:
-            print("Aborting due to timeout")
-            Monitoring.SendEndpointFailure(endpoint)
-            p.terminate()
-            p.join()
-            del p
-            raise
-        except Exception as e:
-            Monitoring.SendEndpointFailure(endpoint)
-            log.exception("Failed to get data last time")
-            p.close()
-            p.join()
-            del p
-            raise
+        return uploader.getData()
+
 
 def query_ps(state, endpoint):
     old_future = state.futures.get(endpoint)
     if old_future:
-        if not old_future.ready():
+        if not old_future.done():
             state.log.info("Prior probe {} is still running; skipping query.".format(endpoint))
             return
         # For now, ignore the result.
         try:
-            old_future.get()
+            old_future.result()
         except Exception as e:
             state.log.exception("Failed to get data last time:")
+            Monitoring.SendEndpointFailure(endpoint)
         finally:
             Monitoring.DecRequestsPending()
 
-    result = state.pool.apply_async(query_ps_child, (state.cp, endpoint))
+    timeout = state.cp.getint("Scheduler", "query_timeout") * MINUTE
+    result = state.pool.schedule(query_ps_child, args=(state.cp, endpoint), timeout=timeout)
     Monitoring.IncRequestsPending()
     state.futures[endpoint] = result
 
@@ -136,11 +118,12 @@ def cleanup_futures(state):
     for endpoint in state.futures:
         cur_future = state.futures[endpoint]
         if cur_future:
-            if cur_future.ready():
+            if cur_future.done():
                 try:
-                    cur_future.get()
+                    cur_future.result()
                 except Exception as e:
                     state.log.exception("Failed to get data last time for endpoint {0}:".format(endpoint))
+                    Monitoring.SendEndpointFailure(endpoint)
                 state.futures[endpoint] = None
                 Monitoring.DecRequestsPending()
 
@@ -157,7 +140,7 @@ def main():
     pool_size = 5
     if cp.has_option("Scheduler", "pool_size"):
         pool_size = cp.getint("Scheduler", "pool_size")
-    pool = multiprocessing.Pool(pool_size)
+    pool = pebble.ProcessPool(max_workers = pool_size, max_tasks=5)
 
     state = SchedulerState(cp, pool, log)
 
@@ -183,6 +166,6 @@ def main():
             time.sleep(1)
 
     except:
-        pool.terminate()
+        pool.stop()
         pool.join()
         raise
