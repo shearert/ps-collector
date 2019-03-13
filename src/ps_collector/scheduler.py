@@ -59,7 +59,7 @@ def query_ps(state, endpoint):
         try:
             old_future.result()
         except Exception as e:
-            state.log.exception("Failed to get data last time:")
+            state.log.exception("Failed to get data last time for endpoint {0}: ".format(endpoint))
             Monitoring.SendEndpointFailure(endpoint)
         finally:
             Monitoring.DecRequestsPending()
