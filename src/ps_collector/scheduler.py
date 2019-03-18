@@ -77,7 +77,14 @@ def query_ps_mesh(state):
     mesh_endpoint = state.cp.get("Mesh", "endpoint")
 
     mesh = Mesh(state.cp.get("Mesh", "endpoint"))
-    endpoints = mesh.get_nodes()
+    try:
+        endpoints = mesh.get_nodes()
+    except Exception as exc:
+        # Very generic, but catch all the possible connection issues with the mesh
+        # Set the endpoints to what it was before, no changes
+        state.log.exception("Failed to get nodes from the mesh, using the previously known nodes")
+        endpoints = set(state.probes)
+
     state.log.info("Nodes: %s", endpoints)
 
     running_probes = set(state.probes)

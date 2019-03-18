@@ -29,8 +29,7 @@ class Mesh:
         Download the nodes from a single mesh
         """
         nodes = set()
-
-        response = requests.get(mesh_url)
+        response = requests.get(mesh_url, timeout=10)
         response_json = response.json()
 
         for org in response_json.get('organizations', []):
@@ -46,7 +45,7 @@ class Mesh:
         Download the list of URLs for the meshes
         """
         to_return = []
-        response = requests.get(self.base_url)
+        response = requests.get(self.base_url, timeout=10)
         for sub_mesh in response.json():
             to_return.append(sub_mesh['include'][0])
         return to_return
