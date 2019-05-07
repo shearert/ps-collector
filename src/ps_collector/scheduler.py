@@ -99,7 +99,7 @@ def query_ps_mesh(state):
         future = state.futures.get(probe)
         if not future:
             continue
-        future.wait()
+        future.result()
 
     default_probe_interval = state.cp.getint("Scheduler", "probe_interval") * MINUTE
 

@@ -29,7 +29,10 @@ class Mesh:
         Download the nodes from a single mesh
         """
         nodes = set()
-        response = requests.get(mesh_url, timeout=10)
+        params = {
+            "format": "meshconfig"
+        }
+        response = requests.get(mesh_url, timeout=10, params=params)
         response_json = response.json()
 
         for org in response_json.get('organizations', []):
