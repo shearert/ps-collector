@@ -49,18 +49,15 @@ class RabbitMQUploader(Uploader):
         result = None
         for tries in range(5):
             try:
-                result = self.channel.basic_publish(exchange = self.config.get('rabbitmq', 'exchange'),
+                self.channel.basic_publish(exchange = self.config.get('rabbitmq', 'exchange'),
                                                 routing_key = 'perfsonar.raw.' + event,
                                                 body = json.dumps(msg_body), 
                                                 properties = pika.BasicProperties(delivery_mode = 2))
                 break
-                if not result:
-                    raise Exception('ERROR: Exception publishing to rabbit MQ', 'Problem publishing to mq')
             except Exception as e:
                 self.log.exception("Restarting pika connection,, exception was %s, " % (repr(e)))
                 ps_collector.get_rabbitmq_connection(self.config).createChannel()
-        if result == None:
-                self.log.error("ERROR: Failed to send message to mq, exception was %s" % (repr(e)))
+
 
     # Publish message to Mq
     def publishRToMq(self, arguments, event_types, datapoints):
