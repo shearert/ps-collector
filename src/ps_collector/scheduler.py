@@ -44,8 +44,9 @@ def query_ps_child(cp, endpoint):
     reverse_dns = ".".join(reverse_dns[::-1])
     log = logging.getLogger("perfSonar.{}".format(reverse_dns))
     log.info("I query endpoint {}.".format(endpoint))
+    backprocess = cp.getint("Scheduler", "backprocess") * MINUTE
     with timed_execution(endpoint):
-        uploader = RabbitMQUploader(connect=endpoint, config=cp, log = log)
+        uploader = RabbitMQUploader(connect=endpoint, config=cp, log = log, start=backprocess)
         return uploader.getData()
 
 
