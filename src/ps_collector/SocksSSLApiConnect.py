@@ -28,7 +28,7 @@ class SocksSSLApiConnect(ApiConnect):
         else:
             r = requests.get(archive_url,
             params=dict(self.filters.metadata_filters, **self.filters.time_filters),
-            headers = self.request_headers)
+            headers = self.request_headers, verify=verify)
         self.inspect_request(r)
         data = list()
 
