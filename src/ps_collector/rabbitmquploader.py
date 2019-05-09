@@ -55,7 +55,7 @@ class RabbitMQUploader(Uploader):
                 break
             except Exception as e:
                 self.log.exception("Restarting pika connection,, exception was %s, " % (repr(e)))
-                ps_collector.get_rabbitmq_connection(self.config).createChannel()
+                self.channel = ps_collector.get_rabbitmq_connection(self.config).createChannel()
 
 
     # Publish message to Mq
