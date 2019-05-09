@@ -19,6 +19,11 @@ class RabbitMQUploader(Uploader):
         self.channel = ps_collector.get_rabbitmq_connection(config).createChannel()
         self.maxMQmessageSize =  self.readConfigFile('mq-max-message-size')
 
+    def __del__(self):
+        #self.log.exception("Del odd")
+        if self.channel and self.channel.is_open:
+            self.channel.close()
+
     # Publish summaries to Mq
     def publishSToMq(self, arguments, event_types, summaries, summaries_data):
         for event in summaries_data.keys():
