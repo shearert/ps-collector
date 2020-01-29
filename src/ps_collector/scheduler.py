@@ -36,6 +36,7 @@ class SchedulerState(object):
         self.probes = set()
         self.futures = {}
         self.log = log
+        self.meshes = {}
 
 
 
@@ -73,18 +74,18 @@ def query_ps(state, endpoint):
 
 def query_ps_mesh(state):
     state.log.info("Querying PS mesh")
-    # TODO: get a list of endpoints from the configured mesh config.
 
-    mesh_endpoint = state.cp.get("Mesh", "endpoint")
-
-    mesh = Mesh(state.cp.get("Mesh", "endpoint"))
-    try:
-        endpoints = mesh.get_nodes()
-    except Exception as exc:
-        # Very generic, but catch all the possible connection issues with the mesh
-        # Set the endpoints to what it was before, no changes
-        state.log.exception("Failed to get nodes from the mesh, using the previously known nodes")
-        endpoints = set(state.probes)
+    endpoints = set()
+    for mesh in state.meshes:
+        try:
+            cur_mesh = Mesh(mesh)
+            state.meshes[mesh] = cur_mesh.get_nodes()
+        except Exception as exc:
+            # Very generic, but catch all the possible connection issues with the mesh
+            # Set the endpoints to what it was before, no changes
+            state.log.exception("Failed to get nodes from the mesh: %s, using the previously known nodes", mesh)
+        endpoints |= state.meshes[mesh]
+            
 
     state.log.info("Nodes: %s", endpoints)
 
@@ -154,6 +155,17 @@ def main():
     pool = pebble.ProcessPool(max_workers = pool_size, max_tasks=5)
 
     state = SchedulerState(cp, pool, log)
+
+    # Initialize the meshes
+    # Get the mesh endpoint configuration, which may be a comma separated list
+    mesh_config_val = state.cp.get("Mesh", "endpoint")
+    if "," in mesh_config_val:
+        meshes = mesh_config_val.split(",")
+    else:
+        meshes = [mesh_config_val]
+    
+    for mesh in meshes:
+        state.meshes[mesh] = []
 
     # Query the mesh the first time
     query_ps_mesh(state)
