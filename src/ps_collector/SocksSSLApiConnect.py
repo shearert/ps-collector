@@ -66,7 +66,6 @@ class SocksSSLApiConnect(ApiConnect):
                         print 'error fetching paginated content'
                         self.http_alert(r)
                         return
-                    yield
 
                     tmp = json.loads(r.text)
 
