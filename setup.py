@@ -6,7 +6,7 @@ Install file for the perfSonar collector project.
 import setuptools
 
 setuptools.setup(name="ps-collector",
-                 version="2.1.1",
+                 version="2.1.2",
                  description="A daemon for aggregating perfSonar measurements",
                  author_email="discuss@sand-ci.org",
                  author="Brian Bockelman",
