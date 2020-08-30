@@ -140,7 +140,7 @@ def cleanup_futures(state):
                 state.futures[endpoint] = None
                 Monitoring.DecRequestsPending()
 
-def checkPushProcessor(push_parser_process: PSPushParser):
+def checkPushProcessor(push_parser_process: PSPushParser, config, log):
     """
     Check the status of the push parser, and restart if necessary
 
@@ -159,7 +159,9 @@ def checkPushProcessor(push_parser_process: PSPushParser):
         log.error(child_exception[1])
 
     # Restart the push processor
+    push_parser_process = PSPushParser(config, log)
     push_parser_process.start()
+    return push_parser_process
 
 
 
@@ -214,7 +216,7 @@ def main():
         while True:
             schedule.run_pending()
             monitor.process_messages()
-            checkPushProcessor(push_parser)
+            push_parser = checkPushProcessor(push_parser, cp, log)
             time.sleep(1)
 
     except:
