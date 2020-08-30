@@ -259,6 +259,12 @@ class PSPushParser(multiprocessing.Process):
             # Register the parser with the message bus
             self._message_bus.registerParsed(self.parse_push)
 
+            # Register the sync list
+            self._message_bus.registerTimer(self.syncPushList, 60)
+
+            # Start the message bus
+            self._message_bus.start()
+
         except Exception as e:
             tb = traceback.format_exc()
             self.error_queue.put((e, tb))
