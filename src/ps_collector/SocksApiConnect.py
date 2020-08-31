@@ -1,8 +1,8 @@
 import os
 import requests
 import json
-from esmond.api.client.perfsonar.query import ApiConnect
-from esmond.api.client.perfsonar.query import Metadata
+from .esmond.api.client.perfsonar.query import ApiConnect
+from .esmond.api.client.perfsonar.query import Metadata
 import requesocks
 
 class SocksApiConnect(ApiConnect):

@@ -1,7 +1,7 @@
 import json
 import os
-from esmond_client.perfsonar.query import ApiConnect
-from esmond_client.perfsonar.query import Metadata
+from .esmond.api.client.perfsonar.query import ApiConnect
+from .esmond.api.client.perfsonar.query import Metadata
 
 import requests
 requests.packages.urllib3.disable_warnings()
@@ -45,13 +45,13 @@ class SocksSSLApiConnect(ApiConnect):
             # ?limit=0
             if len(data) < m_total:
                 # looks like we got paginated content.
-                if self.filters.verbose: print 'pagination - metadata_count_total: {0} got: {1}\n'.format(m_total, len(data))
+                if self.filters.verbose: print('pagination - metadata_count_total: {0} got: {1}\n'.format(m_total, len(data)))
                 initial_offset = len(data) # should be the tastypie internal limit of 1000
                 offset = initial_offset
                 while offset < m_total:
                     if self.filters.verbose:
-                        print 'current total results: {0}'.format(len(data))
-                        print 'issuing request with offset: {0}'.format(offset)
+                        print(('current total results: {0}'.format(len(data))))
+                        print(('issuing request with offset: {0}'.format(offset)))
                     if cert and key:
                         r = requests.get(archive_url,
                             params=dict(self.filters.metadata_filters, **self.filters.time_filters),
@@ -63,18 +63,18 @@ class SocksSSLApiConnect(ApiConnect):
                     self.inspect_request(r)
 
                     if r.status_code != 200:
-                        print 'error fetching paginated content'
+                        print('error fetching paginated content')
                         self.http_alert(r)
                         return
 
                     tmp = json.loads(r.text)
 
-                    if self.filters.verbose: print 'got {0} results\n'.format(len(tmp))
+                    if self.filters.verbose: print(('got {0} results\n'.format(len(tmp))))
 
                     data.extend(tmp)
                     offset += initial_offset
 
-            if self.filters.verbose: print 'final result count: {0}\n'.format(len(data))
+            if self.filters.verbose: print(('final result count: {0}\n'.format(len(data))))
 
             for i in data:
                 yield Metadata(i, self.api_url, self.filters)

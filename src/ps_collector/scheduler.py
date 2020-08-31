@@ -1,4 +1,4 @@
-from __future__ import print_function
+
 
 import functools
 import logging
@@ -20,7 +20,7 @@ from ps_collector.rabbitmquploader import RabbitMQUploader
 from ps_collector.mesh import Mesh
 import ps_collector
 from ps_collector.monitoring import timed_execution, Monitoring
-from parsePush import PSPushParser
+from .parsePush import PSPushParser
 
 # The conversion factor from minutes to seconds:
 MINUTE = 60
@@ -146,7 +146,7 @@ def checkPushProcessor(push_parser_process: PSPushParser, config, log):
 
     :return Process: Returns the resulting process for the push parser
     """
-
+    log.debug("Checking on the push parser")
     # Check if the push parser is still running
     if push_parser_process.is_alive():
         return push_parser_process

@@ -3,23 +3,13 @@ import json
 import socket
 from socket import AddressFamily
 import dateutil.parser
-from multiprocessing import Manager
 from urllib.parse import urlparse
 import pika
-from pushlist import pushlist
+from .pushlist import pushlist
 import multiprocessing
 import traceback
-from ttldict import TTLOrderedDict
+from .ttldict import TTLOrderedDict
 import functools
-
-json_file = open('test-data.json', 'r')
-
-single_line = json_file.readline()
-
-parsed_json = json.loads(single_line)
-
-manager = Manager()
-push_instances = manager.list()
 
 
 class Host:
@@ -105,6 +95,7 @@ class MessageBus:
 
         self.conn = pika.BlockingConnection(params)
         self.recv_chan = self.conn.channel()
+        self.recv_chan.basic_qos(prefetch_count=256)
         self.send_chan = self.conn.channel()
         self.timer_id = self.conn.call_later(10, self._timeoutFunc)
         for timer_func, timeout in self.timer_functions:
@@ -142,13 +133,13 @@ class MessageBus:
             if self._parse_func:
                 self._parse_func(json.loads(body))
         except Exception as e:
-            self.log.exception("Failed to parse message: " + json.loads(body))
+            self.log.exception("Failed to parse message: " + str(body))
             # Ack up to this point, but nack this message
             if self._last_deliver_tag:
                 channel.basic_ack(delivery_tag=self._last_deliver_tag, multiple=True)
                 self.msg_counter = 0
                 self._last_deliver_tag = None
-            channel.basic_nack(deliver_tag = method_frame.delivery_tag)
+            channel.basic_nack(delivery_tag = method_frame.delivery_tag)
             raise e
 
         self.msg_counter += 1
@@ -187,7 +178,7 @@ class MessageBus:
                 continue
             # Do not recover on channel errors
             except pika.exceptions.AMQPChannelError as err:
-                print("Caught a channel error: {}, retrying...".format(err))
+                print(("Caught a channel error: {}, retrying...".format(err)))
                 continue
             # Recover on all other connection errors
             except pika.exceptions.AMQPConnectionError:
@@ -247,7 +238,7 @@ class PSPushParser(multiprocessing.Process):
 
     def syncPushList(self):
         pushlist.clear()
-        pushlist.extend(self.ttldict.keys())
+        pushlist.extend(list(self.ttldict.keys()))
 
     def run(self):
         """
@@ -281,6 +272,11 @@ class PSPushParser(multiprocessing.Process):
 
         # First, fill out the metadata
         to_return = {}
+
+        # If the test failed, then ignore the record
+        if not parsed_object['result']['succeeded']:
+            return True
+
         test_type = parsed_object['test']['type']
         ip_version = parsed_object['test']['spec'].get("ip-version", None)
         # Source
@@ -311,6 +307,7 @@ class PSPushParser(multiprocessing.Process):
 
         # Update the ttl dict with the just received MA, which will also update the TTL
         self.ttldict[to_return['meta']['measurement_agent']] = 1
+        to_return['version'] = 2
 
         self._message_bus.sendParsed(self.topic_map[test_type], to_return)
 

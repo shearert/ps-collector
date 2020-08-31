@@ -1,9 +1,9 @@
-from __future__ import print_function
+
 
 import requests
 import json
-from urlparse import urlparse
-from pushlist import pushlist
+from urllib.parse import urlparse
+from .pushlist import pushlist
 
 
 class Mesh:
@@ -60,7 +60,7 @@ class Mesh:
                             nodes.update([parsed.netloc])
         else:
             # New style, psconfig
-            for archive in response_json.get('archives', {}).items():
+            for archive in list(response_json.get('archives', {}).items()):
                 url = archive[1]['data']['url']
                 parsed = urlparse(url)
                 nodes.update([parsed.netloc])

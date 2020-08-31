@@ -23,7 +23,7 @@ class TTLOrderedDict(OrderedDict):
 
     def __repr__(self):
         return '<TTLOrderedDict@%#08x; ttl=%r, OrderedDict=%r;>' % (
-            id(self), self._default_ttl, self.items())
+            id(self), self._default_ttl, list(self.items()))
 
     def __len__(self):
         with self._lock:
@@ -101,7 +101,7 @@ class TTLOrderedDict(OrderedDict):
     def keys(self):
         with self._lock:
             self._purge()
-            return super().keys()
+            return list(super().keys())
 
     def items(self):
         with self._lock:

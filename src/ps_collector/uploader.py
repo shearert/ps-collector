@@ -4,18 +4,19 @@ import inspect
 import json
 import warnings
 import sys
-import ConfigParser
+import configparser
 from time import strftime
 from time import localtime
+import traceback
 
 # Using the esmond_client instead of the rpm
-from esmond_client.perfsonar.query import ApiFilters
-from esmond_client.perfsonar.query import ApiConnect, ApiConnectWarning
+from .esmond.api.client.perfsonar.query import ApiFilters
+from .esmond.api.client.perfsonar.query import ApiConnect, ApiConnectWarning
 
 # New module with socks5 OR SSL connection that inherits ApiConnect
-from SocksSSLApiConnect import SocksSSLApiConnect
-from SSLNodeInfo import EventTypeSSL
-from SSLNodeInfo import SummarySSL
+from .SocksSSLApiConnect import SocksSSLApiConnect
+from .SSLNodeInfo import EventTypeSSL
+from .SSLNodeInfo import SummarySSL
 from requests.exceptions import ConnectionError
 
 # Set filter object
@@ -37,7 +38,7 @@ class Uploader(object):
         self.debug = self.str2bool(self.readConfigFile('debug', "false"))
         verbose = self.debug
         # Filter variables
-        filters.verbose = verbose
+        filters.verbose = True
         #filters.verbose = True 
         # this are the filters that later will be used for the data
         self.time_end = int(time.time())
@@ -100,18 +101,19 @@ class Uploader(object):
         #    return
         
         try:
-            #Test to see if https connection is succesfull                                                                                             
-            md = metadata.next()
+            #Test to see if https connection is succesfull  
+            print(metadata)
+            md = next(metadata)
             self.readMetaData(md)
         except  StopIteration:
-            self.log.warning("There is no metadat in this time range")
+            self.log.warning("There is no metadata in this time range")
             return
         except ConnectionError as e:
             #Test to see if https connection is sucesful                                                                                               
             self.log.exception("Unable to connect to %s, exception was %s, trying SSL" % ("http://"+self.connect, type(e)))
             try:
                 metadata = self.conn.get_metadata(cert=self.cert, key=self.certkey)
-                md = metadata.next()
+                md = next(metadata)
                 self.useSSL = True
                 self.readMetaData(md)
             except  StopIteration:
@@ -128,6 +130,7 @@ class Uploader(object):
     # Md is a metadata object of query
     def readMetaData(self, md):
         disp = self.debug
+        disp = True
         summary = self.summary
         arguments = {}
         # Building the arguments for the post
@@ -141,6 +144,7 @@ class Uploader(object):
             "input_destination": md.input_destination,
             "tool_name": md.tool_name
         }
+ 
         if not md.time_duration is None:
             arguments["time_duration"] = md.time_duration
         if not md.ip_transport_protocol is None:
@@ -178,14 +182,14 @@ class Uploader(object):
             # Adding the time.end filter for the data since it is not used for the metadata
             #use previously recorded end time if available
             et.filters.time_start = filters.time_start
-            if et.event_type in self.time_starts.keys():
+            if et.event_type in list(self.time_starts.keys()):
                 et.filters.time_start = self.time_starts[et.event_type]
                 self.log.info("loaded previous time_start %s" % et.filters.time_start)
             et.filters.time_end = filters.time_end
             if et.filters.time_end <  et.filters.time_start:
                 continue
-            if (et.filters.time_end - et.filters.time_start) > self.maxStart:
-                et.filters.time_start = et.filters.time_end - self.maxStart
+            #if (et.filters.time_end - et.filters.time_start) > self.maxStart:
+            #    et.filters.time_start = et.filters.time_end - self.maxStart
             eventype = et.event_type
             datapoints[eventype] = {}
             if summary:
@@ -226,6 +230,9 @@ class Uploader(object):
                 # picking the first one as the sample
                 datapointSample[eventype] = tup[1]
         self.log.debug("Sample of the data being posted %s" % datapointSample)
+        print(arguments)
+        print(event_types)
+        print(datapoints)
         try:
             self.postData(arguments, event_types, summaries, summaries_data, metadata_key, datapoints)
         except Exception as e:
@@ -272,7 +279,7 @@ class Uploader(object):
         section = self.metricName + " args"
         try:
             return self.config.get(section, key)
-        except ConfigParser.NoOptionError:
+        except configparser.NoOptionError:
             self.log.warning("Error getting key: %s from config file", key)
             return default
             
@@ -291,7 +298,7 @@ class Uploader(object):
                         OtherContainerClass: OtherContainerClass.get_elements}
     
         """
-        dict_handler = lambda d: chain.from_iterable(d.items())
+        dict_handler = lambda d: chain.from_iterable(list(d.items()))
         all_handlers = {tuple: iter,
                         list: iter,
                         dict: dict_handler,
@@ -308,7 +315,7 @@ class Uploader(object):
             seen.add(id(o))
             s = sys.getsizeof(o, default_size)
 
-            for typ, handler in all_handlers.items():
+            for typ, handler in list(all_handlers.items()):
                 if isinstance(o, typ):
                     s += sum(map(sizeof, handler(o)))
                     break

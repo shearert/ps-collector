@@ -1,10 +1,10 @@
 import json
 import os
 import copy
-from esmond_client.perfsonar.query import EventType
-from esmond_client.perfsonar.query import Metadata
-from esmond_client.perfsonar.query import Summary
-from esmond_client.perfsonar.query import QueryLimitException
+from .esmond.api.client.perfsonar.query import EventType
+from .esmond.api.client.perfsonar.query import Metadata
+from .esmond.api.client.perfsonar.query import Summary
+from .esmond.api.client.perfsonar.query import QueryLimitException
 
 import requests
 requests.packages.urllib3.disable_warnings()
@@ -21,7 +21,7 @@ class EventTypeSSL(EventType):
         and return the compiled results.                                                                                    
         Meant to optimize pulls of large amounts of data."""
 
-        if self.filters.verbose: print ' * looping query for: {0}'.format(self.query_uri)
+        if self.filters.verbose: print(' * looping query for: {0}'.format(self.query_uri))
 
         # XXX(mmg) - revisit this value?                                                                                    
         LIMIT = 1000
@@ -32,7 +32,7 @@ class EventTypeSSL(EventType):
         while 1:
             if self.cert and self.key:
                 self.api_url = self.api_url.replace("http://", "https://", 1)
-                if self.filters.verbose: print 'Changed api url for: {0}'.format(self.api_url)
+                if self.filters.verbose: print('Changed api url for: {0}'.format(self.api_url))
                 r = requests.get('{0}{1}'.format(self.api_url, self.query_uri),
                                  params=q_params,
                                  headers=self.request_headers,
@@ -49,7 +49,7 @@ class EventTypeSSL(EventType):
 
                 data_payload += data
 
-                if self.filters.verbose: print '  ** got {0} results'.format(len(data))
+                if self.filters.verbose: print('  ** got {0} results'.format(len(data)))
 
                 if len(data) < LIMIT:
                     # got less than requested - done                                                                        
@@ -63,10 +63,10 @@ class EventTypeSSL(EventType):
                     self.warn('time start >= time end - exiting query loop')
                     break
             else:
-                print 'Problems with the the connection to'
+                print('Problems with the the connection to')
                 self.http_alert(r)
                 raise QueryLimitException
-        if self.filters.verbose: print '  *** finished with {0} results'.format(len(data_payload))
+        if self.filters.verbose: print('  *** finished with {0} results'.format(len(data_payload)))
 
         return data_payload
 
@@ -81,7 +81,7 @@ class SummarySSL(Summary):
         and Summary sub-classes. Make a series of limited queries in a loop 
         and return the compiled results. 
         Meant to optimize pulls of large amounts of data."""
-        if self.filters.verbose: print ' * looping query for: {0}'.format(self.query_uri)
+        if self.filters.verbose: print(' * looping query for: {0}'.format(self.query_uri))
 
         # XXX(mmg) - revisit this value?
         LIMIT = 1000
@@ -93,7 +93,7 @@ class SummarySSL(Summary):
         while 1:
             if self.cert and self.key:
                 self.api_url = self.api_url.replace("http://", "https://", 1)
-                if self.filters.verbose: print 'Changed api url for: {0}'.format(self.api_url)
+                if self.filters.verbose: print('Changed api url for: {0}'.format(self.api_url))
                 r = requests.get('{0}{1}'.format(self.api_url, self.query_uri),
                                  params=q_params, 
                                  headers=self.request_headers, 
@@ -111,7 +111,7 @@ class SummarySSL(Summary):
 
                 data_payload += data
 
-                if self.filters.verbose: print '  ** got {0} results'.format(len(data))
+                if self.filters.verbose: print('  ** got {0} results'.format(len(data)))
 
                 if len(data) < LIMIT:
                     # got less than requested - done
@@ -129,6 +129,6 @@ class SummarySSL(Summary):
                 self.http_alert(r)
                 raise QueryLimitException
 
-        if self.filters.verbose: print '  *** finished with {0} results'.format(len(data_payload))
+        if self.filters.verbose: print('  *** finished with {0} results'.format(len(data_payload)))
 
         return data_payload
