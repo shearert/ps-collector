@@ -10,6 +10,7 @@ import multiprocessing
 import traceback
 from .ttldict import TTLOrderedDict
 import functools
+import concurrent.futures
 
 
 class Host:
@@ -70,11 +71,11 @@ class MessageBus:
         self.config = config
         self.chan = None
         self.conn = None
-        self.msg_counter = 0
         self._last_deliver_tag = None
         self.timer_id = None
         self.log = log
         self.timer_functions = []
+        self.threadpool = concurrent.futures.ThreadPoolExecutor(max_workers=20)
 
     def _autoconfigure(self):
         if self.conn:
@@ -97,7 +98,6 @@ class MessageBus:
         self.recv_chan = self.conn.channel()
         self.recv_chan.basic_qos(prefetch_count=256)
         self.send_chan = self.conn.channel()
-        self.timer_id = self.conn.call_later(10, self._timeoutFunc)
         for timer_func, timeout in self.timer_functions:
             # Create the partial function
             partial = functools.partial(MessageBus._customTimeouts, timer_func, timeout, self.conn)
@@ -117,39 +117,28 @@ class MessageBus:
         # Call the function
         timer_func()
 
-    def _timeoutFunc(self):
-        if self._last_deliver_tag:
-            self.recv_chan.basic_ack(delivery_tag=self._last_deliver_tag, multiple=True)
-            self._last_deliver_tag = None
-            self.msg_counter = 0
-        self.timer_id = self.conn.call_later(10, self._timeoutFunc)
-
 
     def on_message(self, channel, method_frame, header_frame, body):
         """
-        On each message
+        On each message, submit the processing to the thread pool
+        """
+        self.threadpool.submit(self._start_processing, self.conn, channel, method_frame.delivery_tag, body)
+
+    def _start_processing(self, connection: pika.BlockingConnection, channel: pika.channel, delivery_tag, body):
+        """
+        This should be executed within a new thread
         """
         try:
             if self._parse_func:
                 self._parse_func(json.loads(body))
         except Exception as e:
             self.log.exception("Failed to parse message: " + str(body))
-            # Ack up to this point, but nack this message
-            if self._last_deliver_tag:
-                channel.basic_ack(delivery_tag=self._last_deliver_tag, multiple=True)
-                self.msg_counter = 0
-                self._last_deliver_tag = None
-            channel.basic_nack(delivery_tag = method_frame.delivery_tag)
+            # nack this message
+            connection.add_callback_threadsafe(functools.partial(channel.basic_nack, delivery_tag=delivery_tag))
             raise e
 
-        self.msg_counter += 1
-        if self.msg_counter >= 100:
-            # Ack all of the previous messages
-            channel.basic_ack(delivery_tag=method_frame.delivery_tag, multiple=True)
-            self.msg_counter = 0
-            self._last_deliver_tag = None
-        else:
-            self._last_deliver_tag = method_frame.delivery_tag
+        # Acknowledge the message
+        connection.add_callback_threadsafe(functools.partial(channel.basic_ack, delivery_tag=delivery_tag))
 
 
     def start(self):
@@ -195,11 +184,14 @@ class MessageBus:
         :param parsed_message: A dictionary of the parsed message.  
             Will be json'ified in this function.
         """
-        self.send_chan.basic_publish(self.config['send_exchange'], topic, json.dumps(parsed_message))
+
+        # Thread safe send parsed
+        send_partial = functools.partial(self.send_chan.basic_publish, self.config['send_exchange'], topic, json.dumps(parsed_message))
+        self.conn.add_callback_threadsafe(send_partial)
 
     def registerParsed(self, parser_function):
         """
-        Register a parser function to receive the pushed messages.
+        Register a parser function to receive the pushed messages.  The function must be threadsafe
 
         :param parser_function: A function of the type function(message: dict)
 
@@ -229,7 +221,18 @@ class PSPushParser(multiprocessing.Process):
         self._exception = None
         self._message_bus = None
         self.topic_map = {
-            'latencybg': 'perfsonar.raw.histogram-owdelay'
+            'latencybg': {
+                'topic': 'perfsonar.raw.histogram-owdelay',
+                'datapoint': 'histogram-latency'
+            },
+            'trace': {
+                'topic': 'perfsonar.raw.packet-trace',
+                'datapoint': 'paths'
+            },
+            'throughput': {
+                'topic': 'perfsonar.raw.throughput',
+                'datapoint': ''
+            }
         }
 
         # An expiring dictionary that is used to update the list of MA
@@ -237,7 +240,8 @@ class PSPushParser(multiprocessing.Process):
         self.ttldict = TTLOrderedDict(60*5)
 
     def syncPushList(self):
-        pushlist.clear()
+        # Clear the list
+        pushlist[:] = []
         pushlist.extend(list(self.ttldict.keys()))
 
     def run(self):
@@ -290,26 +294,51 @@ class PSPushParser(multiprocessing.Process):
         if ip_version == 6 or (not ip_version and source_host.ipv6_address and dest_host.ipv6_address):
             to_return['meta']['source'] = source_host.ipv6_address
             to_return['meta']['destination'] = dest_host.ipv6_address
-            to_return['meta']['measurement_agent'] = ma_host.ipv6_address
+            to_return['meta']['measurement_agent'] = ma_host.hostname if ma_host.hostname else ma_host.ipv6_address
         elif ip_version == 4 or (not ip_version and source_host.ipv4_address and dest_host.ipv4_address):
             to_return['meta']['source'] = source_host.ipv4_address
             to_return['meta']['destination'] = dest_host.ipv4_address
-            to_return['meta']['measurement_agent'] = ma_host.ipv4_address
+            to_return['meta']['measurement_agent'] = ma_host.hostname if ma_host.hostname else ma_host.ipv4_address
+
+        # Set the version
+        to_return['version'] = 2
 
         # Now, transform the datapoints
         # Datapoints should be in the shape of {timestamp: [datapoints]}
-        # Use the endtime ?
+        # Use the start-time
         timestamp = dateutil.parser.parse(parsed_object['run']['start-time']).timestamp()
 
-        to_return['datapoints'] = {
-            int(timestamp): parsed_object['result']['histogram-latency']
-        }
+        if test_type == "throughput":
+            # Create the retransmits event type
+            retransmits = parsed_object['result']['summary']['summary']['retransmits']
+            to_return['datapoints'] = {
+                int(timestamp): int(retransmits)
+            }
+            self._message_bus.sendParsed("perfsonar.raw.packet-retransmits", to_return)
+
+            # For throughput, we only need the throughput-bits in the result summary.
+            throughput = parsed_object['result']['summary']['summary']['throughput-bits']
+            to_return['datapoints'] = {
+                int(timestamp): int(throughput)
+            }
+
+        else:
+            if test_type == "latencybg":
+                lost_packets = parsed_object['result']['packets-lost']
+                to_return['datapoints'] = {
+                    int(timestamp): lost_packets
+                }
+                self._message_bus.sendParsed("perfsonar.raw.packet-loss-rate", to_return)
+
+            # For non latency tests
+            to_return['datapoints'] = {
+                int(timestamp): parsed_object['result'][self.topic_map[test_type]['datapoint']]
+            }
 
         # Update the ttl dict with the just received MA, which will also update the TTL
         self.ttldict[to_return['meta']['measurement_agent']] = 1
-        to_return['version'] = 2
 
-        self._message_bus.sendParsed(self.topic_map[test_type], to_return)
+        self._message_bus.sendParsed(self.topic_map[test_type]['topic'], to_return)
 
 
         return True
