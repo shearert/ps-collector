@@ -9,6 +9,7 @@ import time
 
 import schedule
 from prometheus_client import start_http_server
+import dateutil.parser
 
 # Use pebble because it has timeouts for the schedule
 import pebble
@@ -37,17 +38,24 @@ class SchedulerState(object):
         self.futures = {}
         self.log = log
         self.meshes = {}
+        # query_range = Start and ending times to reprocess from the
+        # perfsonar instances
+        self.oneshot = False
+        self.query_range = ()
 
 
 
-def query_ps_child(cp, endpoint):
+def query_ps_child(cp, endpoint, oneshot = False, query_range = ()):
     reverse_dns = endpoint.split(".")
     reverse_dns = ".".join(reverse_dns[::-1])
     log = logging.getLogger("perfSonar.{}".format(reverse_dns))
     log.info("I query endpoint {}.".format(endpoint))
-    backprocess = cp.getint("Scheduler", "backprocess") * MINUTE
     with timed_execution(endpoint):
-        uploader = RabbitMQUploader(connect=endpoint, config=cp, log = log, start=backprocess)
+        if not oneshot:
+            uploader = RabbitMQUploader(connect=endpoint, config=cp, log = log)
+        else:
+            log.info("In child ps query, backprocessing...")
+            uploader = RabbitMQUploader(connect=endpoint, config=cp, log = log, backprocess_start=query_range[0], backprocess_end=query_range[1])
         return uploader.getData()
 
 
@@ -67,9 +75,13 @@ def query_ps(state, endpoint):
             Monitoring.DecRequestsPending()
 
     timeout = state.cp.getint("Scheduler", "query_timeout") * MINUTE
-    result = state.pool.schedule(query_ps_child, args=(state.cp, endpoint), timeout=timeout)
+    result = state.pool.schedule(query_ps_child, args=(state.cp, endpoint, state.oneshot, state.query_range), timeout=timeout)
     Monitoring.IncRequestsPending()
     state.futures[endpoint] = result
+
+    # Check for the oneshot reprocess
+    if isOneShot(state.cp):
+        return schedule.CancelJob
 
 
 def query_ps_mesh(state):
@@ -119,7 +131,8 @@ def query_ps_mesh(state):
         query_ps_job = functools.partial(query_ps, state, probe)
         # Run the probe the first time
         query_ps_job()
-        schedule.every(probe_interval).to(probe_interval + MINUTE).seconds.do(query_ps_job).tag(probe)
+        if not isOneShot(state.cp):
+            schedule.every(probe_interval).to(probe_interval + MINUTE).seconds.do(query_ps_job).tag(probe)
 
     time.sleep(5)
     logging.debug("Finished querying mesh")
@@ -139,6 +152,13 @@ def cleanup_futures(state):
                 state.futures[endpoint] = None
                 Monitoring.DecRequestsPending()
 
+def isOneShot(cp):
+    """
+    :return bool: If the execution is configured to be oneshot backprocessing
+    """
+    return cp.get("Oneshot", "enable").lower() == "true"
+
+
 def main():
     global MINUTE
     cp = ps_collector.config.get_config()
@@ -155,6 +175,15 @@ def main():
     pool = pebble.ProcessPool(max_workers = pool_size, max_tasks=5)
 
     state = SchedulerState(cp, pool, log)
+
+    # Parse the oneshot
+    if isOneShot(cp):
+        # Parse the start and end
+        log.info("Starting Oneshot")
+        state.oneshot = True
+        start = dateutil.parser.parse(cp.get("Oneshot", "start"))
+        end = dateutil.parser.parse(cp.get("Oneshot", "end"))
+        state.query_range = (start, end)
 
     # Initialize the meshes
     # Get the mesh endpoint configuration, which may be a comma separated list
@@ -175,18 +204,23 @@ def main():
 
     mesh_interval_s = cp.getint("Scheduler", "mesh_interval") * MINUTE
     log.info("Will update the mesh config every %d seconds.", mesh_interval_s)
-    schedule.every(mesh_interval_s).to(mesh_interval_s + MINUTE).seconds.do(query_ps_mesh_job)
 
-    schedule.every(10).seconds.do(cleanup_futures_job)
+    if isOneShot(cp):
+        schedule.every(mesh_interval_s).to(mesh_interval_s + MINUTE).seconds.do(query_ps_mesh_job)
+        schedule.every(10).seconds.do(cleanup_futures_job)
 
     monitor = Monitoring()
     # Start the prometheus webserver
     start_http_server(8000)
     try:
-        while True:
-            schedule.run_pending()
-            monitor.process_messages()
-            time.sleep(1)
+        if not isOneShot(cp):
+            while True:
+                schedule.run_pending()
+                monitor.process_messages()
+                time.sleep(1)
+        else:
+            pool.close()
+            pool.join()
 
     except:
         pool.stop()
