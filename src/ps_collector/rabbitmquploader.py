@@ -13,8 +13,8 @@ class RabbitMQUploader(Uploader):
     
     def __init__(self, start = 1600, connect = 'iut2-net3.iu.edu',
                  metricName='org.osg.general.perfsonar-rabbitmq-simple',
-                 config = None, log = None):
-        Uploader.__init__(self, start, connect, metricName, config, log)
+                 config = None, log = None, backprocess_start = None, backprocess_end = None):
+        Uploader.__init__(self, start, connect, metricName, config, log, backprocess_start, backprocess_end)
         
         self.channel = ps_collector.get_rabbitmq_connection(config).createChannel()
         self.maxMQmessageSize =  self.readConfigFile('mq-max-message-size')

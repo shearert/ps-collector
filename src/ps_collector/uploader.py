@@ -26,7 +26,7 @@ class Uploader(object):
     def __init__(self, start = 1600,
                  connect = 'iut2-net3.iu.edu',
                  metricName='org.osg.general-perfsonar-simple.conf', 
-                 config = None, log = None):
+                 config = None, log = None, backprocess_start = None, backprocess_end = None):
         self.log = log
         self.config = config
         ########################################
@@ -40,20 +40,22 @@ class Uploader(object):
         filters.verbose = verbose
         #filters.verbose = True 
         # this are the filters that later will be used for the data
-        self.time_end = int(time.time())
-        self.time_start = int(self.time_end - start)
+        if backprocess_start and backprocess_end:
+            self.time_end = int(time.mktime(backprocess_end.timetuple()))
+            self.time_start = int(time.mktime(backprocess_start.timetuple()))
+            log.info("Inside uploader, starting backprocess")
+        else:
+            self.time_end = int(time.time())
+            self.time_start = int(self.time_end - start)
         # Filter for metadata
-        filters.time_start = int(self.time_end - start)
-        # Added time_end for bug that Andy found as sometime far in the future 24 hours
-        filters.time_end = self.time_end + 12*60*60
-        # For logging pourposes
+
+        # For logging purposes
         filterDates = (strftime("%a, %d %b %Y %H:%M:%S ", time.gmtime(self.time_start)), strftime("%a, %d %b %Y %H:%M:%S", time.gmtime(self.time_end)))
         #filterDates = (strftime("%a, %d %b %Y %H:%M:%S ", time.gmtime(filters.time_start)))
         self.log.info("Data interval is from %s to %s" %filterDates)
-        self.log.info("Metada interval is from %s to now" % (filters.time_start))
+        #self.log.info("Metada interval is from %s to now" % (filters.time_start))
         # Connection info to the perfsonar remote host that the data is gathered from.
         self.connect = connect
-        self.conn = SocksSSLApiConnect("http://"+self.connect, filters)
         self.cert = self.readConfigFile('usercert')
         self.certkey = self.readConfigFile('userkey')
         # The tmp dir structure is: tmp/metricName/host/metadatafiles
@@ -62,7 +64,6 @@ class Uploader(object):
         allowedEvents = self.readConfigFile('allowedEvents')
         self.allowedEvents = allowedEvents.split(',')
         self.useSSL = False
-        self.maxStart = int(self.readConfigFile('maxstart'))
 
         self.summary = self.str2bool(self.readConfigFile('summary'))
                 
@@ -83,6 +84,7 @@ class Uploader(object):
     def getDataHourChunks(self, time_start, time_end):
         filters.time_start = time_start
         filters.time_end = time_end
+        self.log.debug("Querying between times {} and {}".format(time_start, time_end))
 
         # Do we have to use Socks?
         if self.useSSL == True:
@@ -184,8 +186,6 @@ class Uploader(object):
             et.filters.time_end = filters.time_end
             if et.filters.time_end <  et.filters.time_start:
                 continue
-            if (et.filters.time_end - et.filters.time_start) > self.maxStart:
-                et.filters.time_start = et.filters.time_end - self.maxStart
             eventype = et.event_type
             datapoints[eventype] = {}
             if summary:
