@@ -49,14 +49,18 @@ class Host:
             # Reverse resolve the hostname
             self.hostname = socket.gethostbyaddr(self.hostname_or_ip)[0]
 
-        addresses = socket.getaddrinfo(self.hostname_or_ip, None)
-        for address in addresses:
-            if address[0] == AddressFamily.AF_INET:
-                self.ipv4_address = address[4][0]
+        try:
+            addresses = socket.getaddrinfo(self.hostname_or_ip, None)
+            for address in addresses:
+                if address[0] == AddressFamily.AF_INET:
+                    self.ipv4_address = address[4][0]
 
-            elif address[0] == AddressFamily.AF_INET6:
-                self.ipv6_address = address[4][0]
-            # We received an ip address
+                elif address[0] == AddressFamily.AF_INET6:
+                    self.ipv6_address = address[4][0]
+                # We received an ip address
+        except socket.gaierror as gaerror:
+            # Failed to resolve the hostname or ip
+            pass
 
     def __str__(self):
         return "ipv4: {}, ipv6: {}, hostname: {}".format(self.ipv4_address, self.ipv6_address, self.hostname)
@@ -294,11 +298,11 @@ class PSPushParser(multiprocessing.Process):
         if ip_version == 6 or (not ip_version and source_host.ipv6_address and dest_host.ipv6_address):
             to_return['meta']['source'] = source_host.ipv6_address
             to_return['meta']['destination'] = dest_host.ipv6_address
-            to_return['meta']['measurement_agent'] = ma_host.hostname if ma_host.hostname else ma_host.ipv6_address
+            to_return['meta']['measurement_agent'] = ma_host.ipv6_address if ma_host.ipv6_address else ma_host.hostname
         elif ip_version == 4 or (not ip_version and source_host.ipv4_address and dest_host.ipv4_address):
             to_return['meta']['source'] = source_host.ipv4_address
             to_return['meta']['destination'] = dest_host.ipv4_address
-            to_return['meta']['measurement_agent'] = ma_host.hostname if ma_host.hostname else ma_host.ipv4_address
+            to_return['meta']['measurement_agent'] = ma_host.ipv4_address if ma_host.ipv4_address else ma_host.hostname
 
         # Set the version
         to_return['version'] = 2
