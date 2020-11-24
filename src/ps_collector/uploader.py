@@ -102,7 +102,6 @@ class Uploader(object):
         
         try:
             #Test to see if https connection is succesfull  
-            print(metadata)
             md = next(metadata)
             self.readMetaData(md)
         except  StopIteration:
@@ -230,9 +229,6 @@ class Uploader(object):
                 # picking the first one as the sample
                 datapointSample[eventype] = tup[1]
         self.log.debug("Sample of the data being posted %s" % datapointSample)
-        print(arguments)
-        print(event_types)
-        print(datapoints)
         try:
             self.postData(arguments, event_types, summaries, summaries_data, metadata_key, datapoints)
         except Exception as e:
