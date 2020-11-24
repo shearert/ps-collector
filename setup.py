@@ -4,6 +4,7 @@ Install file for the perfSonar collector project.
 """
 
 import setuptools
+from setuptools import find_packages
 
 setuptools.setup(name="ps-collector",
                  version="2.2.0",
@@ -12,9 +13,9 @@ setuptools.setup(name="ps-collector",
                  author="Brian Bockelman",
                  url="https://sand-ci.org",
                  package_dir={"": "src"},
-                 packages=["ps_collector"],
+                 packages=find_packages(where="src"),
                  scripts=['bin/ps-collector'],
-                 install_requires=['schedule', 'pika', 'esmond-client'],
+                 install_requires=['schedule', 'pika'],
                  data_files=[('/etc/ps-collector', ['configs/config.ini', 'configs/logging-config.ini']),
                              ('/etc/ps-collector/config.d',  ['configs/10-site-local.ini']),
                              ('/usr/lib/systemd/system', ['configs/ps-collector.service']),

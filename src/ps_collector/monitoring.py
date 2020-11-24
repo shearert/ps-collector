@@ -1,6 +1,6 @@
 
 import multiprocessing
-import Queue
+import queue
 import time
 from prometheus_client import Summary, Gauge, Counter
 
@@ -25,12 +25,12 @@ class Monitoring(object):
         while True:
             try:
                 item = communication_queue.get(False)        
-                print("Got from queue: {0}".format(item))
+                print(("Got from queue: {0}".format(item)))
                 if item[0] == Monitoring.QUERY_ELASPED_TYPE:
                     request_summary.labels(item[1]).observe(item[2])
                 elif item[0] == Monitoring.ENDPOINT_FAILURE_TYPE:
                     ENDPOINT_FAILURE.labels(item[1]).inc()
-            except Queue.Empty:
+            except queue.Empty:
                 break
 
 

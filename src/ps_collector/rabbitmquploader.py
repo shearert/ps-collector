@@ -1,4 +1,4 @@
-from uploader import Uploader
+from .uploader import Uploader
 # Need to push to Rabbit mq
 import pika
 from ps_collector.sharedrabbitmq import SharedRabbitMQ
@@ -26,7 +26,7 @@ class RabbitMQUploader(Uploader):
 
     # Publish summaries to Mq
     def publishSToMq(self, arguments, event_types, summaries, summaries_data):
-        for event in summaries_data.keys():
+        for event in list(summaries_data.keys()):
             if not summaries_data[event]:
                 continue
             arguments['rsv-timestamp'] = "%s" % time.time()
@@ -39,11 +39,11 @@ class RabbitMQUploader(Uploader):
     def SendMessagetoMQ(self, msg_body, event):
         # the max size limit in KB but python expects it in bytes                                                                           
         size_limit = self.maxMQmessageSize * 1000
-        size_msg = self.total_size(msg_body)
+        #json_str = msg_body.dumps(msg_body)
         # if size of the message is larger than 10MB discarrd                                                                             
-        if size_msg > size_limit:
-            self.log.warning("Size of message body bigger than limit, discarding")
-            return
+        #if size_msg > size_limit:
+        #    self.log.warning("Size of message body bigger than limit, discarding")
+        #    return
         # add to mq
         result = None
         for tries in range(5):
@@ -60,7 +60,7 @@ class RabbitMQUploader(Uploader):
 
     # Publish message to Mq
     def publishRToMq(self, arguments, event_types, datapoints):
-        for event in datapoints.keys():
+        for event in list(datapoints.keys()):
             # filter events for mq (must be subset of the probe's filter)
             if event not in self.allowedEvents:
                 continue
@@ -75,6 +75,7 @@ class RabbitMQUploader(Uploader):
             ts_start = min(datapoints[event].keys())
             arguments['ts_start'] = ts_start
             msg_body = { 'meta': arguments }
+            msg_body['version'] = 2
             msg_body['datapoints'] = datapoints[event]
             self.SendMessagetoMQ(msg_body, event)
 
@@ -83,7 +84,7 @@ class RabbitMQUploader(Uploader):
         disp = self.debug
         lenght_post = -1
         arguments['org_metadata_key'] = metadata_key
-        for event_type in datapoints.keys():
+        for event_type in list(datapoints.keys()):
             if len(datapoints[event_type])>lenght_post:
                 lenght_post = len(datapoints[event_type])
         if lenght_post == 0:
@@ -101,16 +102,16 @@ class RabbitMQUploader(Uploader):
         self.log.info("Length of the post: %s " % lenght_post)
         for step in range(0, lenght_post, step_size):
             chunk_datapoints = {}
-            for event_type in datapoints.keys():
+            for event_type in list(datapoints.keys()):
                 chunk_datapoints[event_type] = {}
-                if len(datapoints[event_type].keys())>0:
+                if len(list(datapoints[event_type].keys()))>0:
                     pointsconsider = sorted(datapoints[event_type].keys())[step:step+step_size]
                     for point in pointsconsider:
                         chunk_datapoints[event_type][point] = datapoints[event_type][point]
             self.publishRToMq(arguments, event_types, chunk_datapoints)
             # Updating the checkpoint files for each host/metric and metadata
-            for event_type in chunk_datapoints.keys():
-                if len(chunk_datapoints[event_type].keys()) > 0:
+            for event_type in list(chunk_datapoints.keys()):
+                if len(list(chunk_datapoints[event_type].keys())) > 0:
                     if event_type not in self.time_starts:
                         self.time_starts[event_type] = 0
                     next_time_start = max(chunk_datapoints[event_type].keys())+1

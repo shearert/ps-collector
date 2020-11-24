@@ -1,4 +1,4 @@
-from __future__ import print_function
+
 
 import functools
 import logging
@@ -21,6 +21,7 @@ from ps_collector.rabbitmquploader import RabbitMQUploader
 from ps_collector.mesh import Mesh
 import ps_collector
 from ps_collector.monitoring import timed_execution, Monitoring
+from .parsePush import PSPushParser
 
 # The conversion factor from minutes to seconds:
 MINUTE = 60
@@ -152,6 +153,29 @@ def cleanup_futures(state):
                 state.futures[endpoint] = None
                 Monitoring.DecRequestsPending()
 
+def checkPushProcessor(push_parser_process: PSPushParser, config, log):
+    """
+    Check the status of the push parser, and restart if necessary
+
+    :return Process: Returns the resulting process for the push parser
+    """
+    log.debug("Checking on the push parser")
+    # Check if the push parser is still running
+    if push_parser_process.is_alive():
+        return push_parser_process
+
+    # If we get here, then the push processor is dead, restart it!
+    log.error("The push processor died")
+    child_exception = push_parser_process.exception
+    if child_exception:
+        log.error("Exception from push process:")
+        log.error(child_exception[1])
+
+    # Restart the push processor
+    push_parser_process = PSPushParser(config, log)
+    push_parser_process.start()
+    return push_parser_process
+
 def isOneShot(cp):
     """
     :return bool: If the execution is configured to be oneshot backprocessing
@@ -168,6 +192,10 @@ def main():
     ps_collector.config.setup_logging(cp)
     global log
     log = logging.getLogger("scheduler")
+
+    # Start the push processor
+    push_parser = PSPushParser(cp, log)
+    push_parser.start()
 
     pool_size = 5
     if cp.has_option("Scheduler", "pool_size"):
@@ -217,6 +245,7 @@ def main():
             while True:
                 schedule.run_pending()
                 monitor.process_messages()
+                push_parser = checkPushProcessor(push_parser, cp, log)
                 time.sleep(1)
         else:
             pool.close()

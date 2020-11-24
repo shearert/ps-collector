@@ -1,5 +1,7 @@
 schedule
 pika
-esmond-client
+#esmond-client
 prometheus_client
 pebble
+requests
+python-dateutil

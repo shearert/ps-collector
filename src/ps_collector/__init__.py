@@ -1,5 +1,5 @@
 
-import sharedrabbitmq
+from . import sharedrabbitmq
 
 # Shared RabbitMQ
 shared_rabbitmq = None

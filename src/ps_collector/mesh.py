@@ -1,8 +1,9 @@
-from __future__ import print_function
+
 
 import requests
 import json
-from urlparse import urlparse
+from urllib.parse import urlparse
+from .pushlist import pushlist
 
 
 class Mesh:
@@ -30,7 +31,11 @@ class Mesh:
             # New psconfig style
             nodes.update(self._download_nodes(response_json=response_json))
 
-        return nodes
+        # Remove the nodes that exist in the pushlist
+        push_nodes = set(pushlist)
+
+        # Use set subtraction to remove the push nodes
+        return nodes - push_nodes
 
 
     def _download_nodes(self, mesh_url=None, response_json=None):
@@ -55,10 +60,7 @@ class Mesh:
                             nodes.update([parsed.netloc])
         else:
             # New style, psconfig
-            print("In new style psconfig")
-            print(response_json)
-            for archive in response_json.get('archives', {}).items():
-                print(archive)
+            for archive in list(response_json.get('archives', {}).items()):
                 url = archive[1]['data']['url']
                 parsed = urlparse(url)
                 nodes.update([parsed.netloc])
