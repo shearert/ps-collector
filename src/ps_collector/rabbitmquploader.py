@@ -75,6 +75,7 @@ class RabbitMQUploader(Uploader):
             ts_start = min(datapoints[event].keys())
             arguments['ts_start'] = ts_start
             msg_body = { 'meta': arguments }
+            msg_body['version'] = 2
             msg_body['datapoints'] = datapoints[event]
             self.SendMessagetoMQ(msg_body, event)
 
