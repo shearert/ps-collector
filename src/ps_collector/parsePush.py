@@ -298,11 +298,11 @@ class PSPushParser(multiprocessing.Process):
         if ip_version == 6 or (not ip_version and source_host.ipv6_address and dest_host.ipv6_address):
             to_return['meta']['source'] = source_host.ipv6_address
             to_return['meta']['destination'] = dest_host.ipv6_address
-            to_return['meta']['measurement_agent'] = ma_host.ipv6_address if ma_host.ipv6_address else ma_host.hostname
+            to_return['meta']['measurement_agent'] = source_host.ipv6_address if source_host.ipv6_address else source_host.hostname
         elif ip_version == 4 or (not ip_version and source_host.ipv4_address and dest_host.ipv4_address):
             to_return['meta']['source'] = source_host.ipv4_address
             to_return['meta']['destination'] = dest_host.ipv4_address
-            to_return['meta']['measurement_agent'] = ma_host.ipv4_address if ma_host.ipv4_address else ma_host.hostname
+            to_return['meta']['measurement_agent'] = source_host.ipv4_address if source_host.ipv4_address else source_host.hostname
 
         # Set the version
         to_return['version'] = 2
