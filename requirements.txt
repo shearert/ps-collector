@@ -1,6 +1,5 @@
 schedule
 pika
-#esmond-client
 prometheus_client
 pebble
 requests
