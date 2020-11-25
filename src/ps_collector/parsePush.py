@@ -306,6 +306,7 @@ class PSPushParser(multiprocessing.Process):
 
         # Set the version
         to_return['version'] = 2
+        to_return['meta']['push'] = True
 
         # Now, transform the datapoints
         # Datapoints should be in the shape of {timestamp: [datapoints]}
@@ -340,7 +341,7 @@ class PSPushParser(multiprocessing.Process):
             }
 
         # Update the ttl dict with the just received MA, which will also update the TTL
-        self.ttldict[to_return['meta']['measurement_agent']] = 1
+        self.ttldict[source_host.hostname] = 1
 
         self._message_bus.sendParsed(self.topic_map[test_type]['topic'], to_return)
 

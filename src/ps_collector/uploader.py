@@ -38,7 +38,7 @@ class Uploader(object):
         self.debug = self.str2bool(self.readConfigFile('debug', "false"))
         verbose = self.debug
         # Filter variables
-        filters.verbose = True
+        filters.verbose = False
         #filters.verbose = True 
         # this are the filters that later will be used for the data
         if backprocess_start and backprocess_end:
