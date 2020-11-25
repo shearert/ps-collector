@@ -7,7 +7,7 @@ import setuptools
 from setuptools import find_packages
 
 setuptools.setup(name="ps-collector",
-                 version="3.0.0",
+                 version="3.1.0",
                  description="A daemon for aggregating perfSonar measurements",
                  author_email="discuss@sand-ci.org",
                  author="Brian Bockelman",
