@@ -290,7 +290,12 @@ class PSPushParser(multiprocessing.Process):
         # Source
         source_host = Host(parsed_object['test']['spec']['source'])
         dest_host = Host(parsed_object['test']['spec']['dest'])
-        ma_host = Host(parsed_object['task']['href'])
+        # There should be a [headers][x_ps_observer]
+        if 'headers' in parsed_object and 'x_ps_observer' in parsed_object['headers']:
+            ma_host = Host(parsed_object['headers']['x_ps_observer'])
+        else:
+            self.log.error("Attribute [headers][x_ps_observer] not in pushed message")
+            ma_host = Host(parsed_object['task']['href'])
         to_return['meta'] = {}
         to_return['meta']['input_source'] = source_host.hostname
         to_return['meta']['input_destination'] = dest_host.hostname
@@ -298,11 +303,11 @@ class PSPushParser(multiprocessing.Process):
         if ip_version == 6 or (not ip_version and source_host.ipv6_address and dest_host.ipv6_address):
             to_return['meta']['source'] = source_host.ipv6_address
             to_return['meta']['destination'] = dest_host.ipv6_address
-            to_return['meta']['measurement_agent'] = source_host.ipv6_address if source_host.ipv6_address else source_host.hostname
+            to_return['meta']['measurement_agent'] = ma_host.ipv6_address if ma_host.ipv6_address else ma_host.hostname
         elif ip_version == 4 or (not ip_version and source_host.ipv4_address and dest_host.ipv4_address):
             to_return['meta']['source'] = source_host.ipv4_address
             to_return['meta']['destination'] = dest_host.ipv4_address
-            to_return['meta']['measurement_agent'] = source_host.ipv4_address if source_host.ipv4_address else source_host.hostname
+            to_return['meta']['measurement_agent'] = ma_host.ipv4_address if ma_host.ipv4_address else ma_host.hostname
 
         # Set the version
         to_return['version'] = 2
