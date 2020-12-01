@@ -294,7 +294,7 @@ class PSPushParser(multiprocessing.Process):
         if 'headers' in parsed_object and 'x_ps_observer' in parsed_object['headers']:
             ma_host = Host(parsed_object['headers']['x_ps_observer'])
         else:
-            self.log.error("Attribute [headers][x_ps_observer] not in pushed message")
+            self._log.error("Attribute [headers][x_ps_observer] not in pushed message")
             ma_host = Host(parsed_object['task']['href'])
         to_return['meta'] = {}
         to_return['meta']['input_source'] = source_host.hostname
