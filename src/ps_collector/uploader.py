@@ -113,6 +113,7 @@ class Uploader(object):
             #Test to see if https connection is sucesful                                                                                               
             self.log.exception("Unable to connect to %s, exception was %s, trying SSL" % ("http://"+self.connect, type(e)))
             try:
+                self.conn = SocksSSLApiConnect("https://"+self.connect, filters)
                 metadata = self.conn.get_metadata(cert=self.cert, key=self.certkey)
                 md = next(metadata)
                 self.useSSL = True
