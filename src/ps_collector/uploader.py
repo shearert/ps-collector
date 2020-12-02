@@ -38,7 +38,7 @@ class Uploader(object):
         self.debug = self.str2bool(self.readConfigFile('debug', "false"))
         verbose = self.debug
         # Filter variables
-        filters.verbose = False
+        filters.verbose = True
         #filters.verbose = True 
         # this are the filters that later will be used for the data
         if backprocess_start and backprocess_end:
@@ -113,7 +113,6 @@ class Uploader(object):
             #Test to see if https connection is sucesful                                                                                               
             self.log.exception("Unable to connect to %s, exception was %s, trying SSL" % ("http://"+self.connect, type(e)))
             try:
-                self.conn = SocksSSLApiConnect("https://"+self.connect, filters)
                 metadata = self.conn.get_metadata(cert=self.cert, key=self.certkey)
                 md = next(metadata)
                 self.useSSL = True
