@@ -151,6 +151,7 @@ def cleanup_futures(state):
                     cur_future.result()
                 except Exception as e:
                     state.log.exception("Failed to get data last time for endpoint {0}:".format(endpoint))
+                    state.log.error("Exception was: {0}".format(str(e)))
                     Monitoring.SendEndpointFailure(endpoint)
                 state.futures[endpoint] = None
                 Monitoring.DecRequestsPending()
