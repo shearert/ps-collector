@@ -97,7 +97,9 @@ def query_ps_mesh(state):
             # Very generic, but catch all the possible connection issues with the mesh
             # Set the endpoints to what it was before, no changes
             state.log.exception("Failed to get nodes from the mesh: %s, using the previously known nodes", mesh)
-        endpoints |= state.meshes[mesh]
+            if mesh not in state.meshes:
+                state.meshes[mesh] = []
+        endpoints |= set(state.meshes[mesh])
             
 
     state.log.info("Nodes: %s", endpoints)
