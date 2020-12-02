@@ -39,6 +39,7 @@ class Uploader(object):
         verbose = self.debug
         # Filter variables
         filters.verbose = True
+        filters.ssl_verify = False
         #filters.verbose = True 
         # this are the filters that later will be used for the data
         if backprocess_start and backprocess_end:
