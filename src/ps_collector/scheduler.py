@@ -55,7 +55,8 @@ def query_ps_child(cp, endpoint, oneshot = False, query_range = ()):
         if not oneshot:
             uploader = RabbitMQUploader(connect=endpoint, config=cp, log = log)
         else:
-            log.info("In child ps query, backprocessing...")
+            log.info("In child ps query, backprocessing...{} to {}".format(query_range[0], query_range[1]))
+
             uploader = RabbitMQUploader(connect=endpoint, config=cp, log = log, backprocess_start=query_range[0], backprocess_end=query_range[1])
         return uploader.getData()
 
@@ -185,6 +186,12 @@ def isOneShot(cp):
     """
     return cp.get("Oneshot", "enable").lower() == "true"
 
+def isPush(cp):
+    """
+    :return bool: If the push parser should be enabled
+    """
+    return cp.get("Push", "enable").lower() == "true"
+
 
 def main():
     global MINUTE
@@ -197,8 +204,9 @@ def main():
     log = logging.getLogger("scheduler")
 
     # Start the push processor
-    push_parser = PSPushParser(cp, log)
-    push_parser.start()
+    if isPush(cp):
+        push_parser = PSPushParser(cp, log)
+        push_parser.start()
 
     pool_size = 5
     if cp.has_option("Scheduler", "pool_size"):
@@ -248,7 +256,8 @@ def main():
             while True:
                 schedule.run_pending()
                 monitor.process_messages()
-                push_parser = checkPushProcessor(push_parser, cp, log)
+                if isPush(cp):
+                    push_parser = checkPushProcessor(push_parser, cp, log)
                 time.sleep(1)
         else:
             pool.close()
