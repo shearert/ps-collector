@@ -68,9 +68,6 @@ class Uploader(object):
         self.useSSL = True
 
         self.summary = self.str2bool(self.readConfigFile('summary'))
-
-        # Set filter object
-        self.filters = ApiFilters()
                 
     # Get Data
     def getData(self):
