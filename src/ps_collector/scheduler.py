@@ -184,13 +184,13 @@ def isOneShot(cp):
     """
     :return bool: If the execution is configured to be oneshot backprocessing
     """
-    return cp.get("Oneshot", "enable").lower() == "true"
+    return cp.get("Oneshot", "enable", fallback="false").lower() == "true"
 
 def isPush(cp):
     """
     :return bool: If the push parser should be enabled
     """
-    return cp.get("Push", "enable").lower() == "true"
+    return cp.get("Push", "enabled", fallback="false").lower() == "true"
 
 
 def main():
