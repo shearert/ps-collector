@@ -246,6 +246,7 @@ class PSPushParser(multiprocessing.Process):
     def syncPushList(self):
         # Clear the list
         pushlist[:] = []
+        self._log.debug("List of hosts pushing to the queue: {}".format(str(self.ttldict.keys())))
         pushlist.extend(list(self.ttldict.keys()))
 
     def run(self):
@@ -334,7 +335,7 @@ class PSPushParser(multiprocessing.Process):
 
         else:
             if test_type == "latencybg":
-                lost_packets = parsed_object['result']['packets-lost']
+                lost_packets = parsed_object['result']['packets-lost'] / parsed_object['result']['packets-sent']
                 to_return['datapoints'] = {
                     int(timestamp): lost_packets
                 }
@@ -346,7 +347,7 @@ class PSPushParser(multiprocessing.Process):
             }
 
         # Update the ttl dict with the just received MA, which will also update the TTL
-        self.ttldict[source_host.hostname] = 1
+        self.ttldict[ma_host.hostname] = 1
 
         self._message_bus.sendParsed(self.topic_map[test_type]['topic'], to_return)
 
