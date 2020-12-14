@@ -185,7 +185,7 @@ class Uploader(object):
                 continue
 
             # Read datapoints
-            warnings.filterwarnings('error')
+            warnings.simplefilter("ignore")
             try:
                 dpay = et.get_data()
             except Warning as war:
