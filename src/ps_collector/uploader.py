@@ -188,8 +188,8 @@ class Uploader(object):
             warnings.filterwarnings('error')
             try:
                 dpay = et.get_data()
-            except Warning:
-                raise Exception("Unable to read data  exception: %s" )
+            except Warning as war:
+                self.log.warning("Got warning from getting data points: {}".format(str(war)))
             tup = ()
             for dp in dpay.data:
                 tup = (dp.ts_epoch, dp.val)
