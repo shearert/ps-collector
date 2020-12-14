@@ -14,13 +14,12 @@ from .esmond.api.client.perfsonar.query import ApiFilters
 from .esmond.api.client.perfsonar.query import ApiConnect, ApiConnectWarning
 
 # New module with socks5 OR SSL connection that inherits ApiConnect
-from .SocksSSLApiConnect import SocksSSLApiConnect
-from .SSLNodeInfo import EventTypeSSL
-from .SSLNodeInfo import SummarySSL
+#from .SocksSSLApiConnect import SocksSSLApiConnect
+#from .SSLNodeInfo import EventTypeSSL
+#from .SSLNodeInfo import SummarySSL
 from requests.exceptions import ConnectionError
 
-# Set filter object
-filters = ApiFilters()
+
 
 class Uploader(object):
     
@@ -38,8 +37,9 @@ class Uploader(object):
         self.debug = self.str2bool(self.readConfigFile('debug', "false"))
         verbose = self.debug
         # Filter variables
-        filters.verbose = True
-        filters.ssl_verify = False
+        self.filters = ApiFilters()
+        self.filters.verbose = True
+        self.filters.ssl_verify = False
         #filters.verbose = True 
         # this are the filters that later will be used for the data
         if backprocess_start and backprocess_end:
@@ -65,9 +65,12 @@ class Uploader(object):
         # Convert the allowedEvents into a list
         allowedEvents = self.readConfigFile('allowedEvents')
         self.allowedEvents = allowedEvents.split(',')
-        self.useSSL = False
+        self.useSSL = True
 
         self.summary = self.str2bool(self.readConfigFile('summary'))
+
+        # Set filter object
+        self.filters = ApiFilters()
                 
     # Get Data
     def getData(self):
@@ -79,44 +82,34 @@ class Uploader(object):
             self.log.info("Reading Summaries")
         else:
             self.log.info("Omitting Summaries")
-        period = 3600
-        for new_time_start in range(self.time_start, self.time_end, period):
-             self.getDataHourChunks(new_time_start, new_time_start + period)
+        self.getMetadata(self.time_start)
 
-    def getDataHourChunks(self, time_start, time_end):
-        filters.time_start = time_start
-        filters.time_end = time_end
-        self.log.debug("Querying between times {} and {}".format(time_start, time_end))
+    def getMetadata(self, time_start):
+        self.filters.time_start = time_start
+        self.log.debug("Querying starting time {}".format(time_start))
 
-        # Do we have to use Socks?
+        # Try SSL first
         if self.useSSL == True:
-            self.conn = SocksSSLApiConnect("https://"+self.connect, filters)
+            self.conn = ApiConnect("https://"+self.connect, self.filters)
         else:
-            self.conn = SocksSSLApiConnect("http://"+self.connect, filters)
-        metadata = self.conn.get_metadata()
-        #self.conn = None
-        #metadata = None
-        #try:
-        #    self.conn = ApiConnect("http://" + self.connect, filters)
-        #    metadata = self.conn.get_metadata()
-        #except ApiConnectWarning as apiwarning:
-        #    self.log.exception("Unable to connect to host")
-        #    return
+            self.conn = ApiConnect("http://"+self.connect, self.filters)
         
         try:
-            #Test to see if https connection is succesfull  
+            #Test to see if https connection is succesfull
+            metadata = self.conn.get_metadata()
             md = next(metadata)
             self.readMetaData(md)
         except  StopIteration:
             self.log.warning("There is no metadata in this time range")
             return
-        except ConnectionError as e:
-            #Test to see if https connection is sucesful                                                                                               
-            self.log.exception("Unable to connect to %s, exception was %s, trying SSL" % ("http://"+self.connect, type(e)))
+        except ConnectionError as httpsException:
+            #Test to see if https connection is sucesful      
+            self.log.debug("Failed to connect to %s with https, trying http" % self.connect)                                                                                         
             try:
-                metadata = self.conn.get_metadata(cert=self.cert, key=self.certkey)
+                self.conn = ApiConnect("http://"+self.connect, self.filters)
+                metadata = self.conn.get_metadata()
                 md = next(metadata)
-                self.useSSL = True
+                self.useSSL = False
                 self.readMetaData(md)
             except  StopIteration:
                 self.log.warning("There is no metadata in this time range")
@@ -178,42 +171,22 @@ class Uploader(object):
             # decoding failed
             self.log.exception("first time for %s" % (md.metadata_key))
         for et in md.get_all_event_types():
-            if self.useSSL:
-                etSSL = EventTypeSSL(et, self.cert, self.certkey)
-                et = etSSL
+
             # Adding the time.end filter for the data since it is not used for the metadata
             #use previously recorded end time if available
-            et.filters.time_start = filters.time_start
+            et.filters.time_start = self.time_start
             if et.event_type in list(self.time_starts.keys()):
                 et.filters.time_start = self.time_starts[et.event_type]
                 self.log.info("loaded previous time_start %s" % et.filters.time_start)
-            et.filters.time_end = filters.time_end
+            et.filters.time_end = self.time_end
             if et.filters.time_end <  et.filters.time_start:
                 continue
             eventype = et.event_type
             datapoints[eventype] = {}
-            if summary:
-                summaries[eventype] = et.summaries
-            else:
-                summaries[eventype] = []
             # Skip reading data points for certain event types to improv efficiency  
             if eventype not in self.allowedEvents:
                 continue
-            # Read summary data 
-            if summary:
-               summaries_data[eventype] = []
-               for summ in et.get_all_summaries():
-                   if self.useSSL:
-                       summSSL = SummarySSL(summ, self.cert, self.certkey)
-                       summ = summSSL
-                   summ_data = summ.get_data()
-                   summ_dp = [ (dp.ts_epoch, dp.val) for dp in summ_data.data ]
-                   if not summ_dp:
-                       continue
-                   summaries_data[eventype].append({'event_type': eventype,
-                                                   'summary_type' : summ.summary_type,
-                                                   'summary_window' : summ.summary_window,
-                                                   'summary_data' : summ_dp })
+
             # Read datapoints
             warnings.filterwarnings('error')
             try:
