@@ -229,6 +229,10 @@ class PSPushParser(multiprocessing.Process):
                 'topic': 'perfsonar.raw.histogram-owdelay',
                 'datapoint': 'histogram-latency'
             },
+            'latency': {
+                'topic': 'perfsonar.raw.histogram-owdelay',
+                'datapoint': 'histogram-latency'
+            },
             'trace': {
                 'topic': 'perfsonar.raw.packet-trace',
                 'datapoint': 'paths'
