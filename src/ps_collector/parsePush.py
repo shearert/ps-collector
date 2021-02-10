@@ -11,6 +11,7 @@ import traceback
 from .ttldict import TTLOrderedDict
 import functools
 import concurrent.futures
+import logging
 
 
 class Host:
@@ -70,7 +71,7 @@ class Host:
 
 class MessageBus:
 
-    def __init__(self, config, log):
+    def __init__(self, config, log: logging.Logger):
         self._parse_func = None
         self.config = config
         self.chan = None
@@ -104,6 +105,7 @@ class MessageBus:
         self.send_chan = self.conn.channel()
         for timer_func, timeout in self.timer_functions:
             # Create the partial function
+            self.log.debug("Adding a custom timeout function")
             partial = functools.partial(MessageBus._customTimeouts, timer_func, timeout, self.conn)
             self.conn.call_later(timeout, partial)
 
@@ -210,6 +212,7 @@ class MessageBus:
         :param timeout: Number of seconds between calls to timer_function
         """
         # Create the timer
+        self.log.debug("Adding timer function")
         self.timer_functions.append((timer_function, timeout))
 
 
@@ -221,6 +224,7 @@ class PSPushParser(multiprocessing.Process):
         super(PSPushParser, self).__init__()
         self._config = config
         self._log = log
+        self._log.debug("Creating the push parser")
         self.error_queue = multiprocessing.Queue()
         self._exception = None
         self._message_bus = None
@@ -249,7 +253,8 @@ class PSPushParser(multiprocessing.Process):
 
     def syncPushList(self):
         # Clear the list
-        pushlist[:] = []
+        for num in range(len(pushlist)):
+            pushlist.pop()
         self._log.debug("List of hosts pushing to the queue: {}".format(str(self.ttldict.keys())))
         pushlist.extend(list(self.ttldict.keys()))
 
@@ -258,6 +263,7 @@ class PSPushParser(multiprocessing.Process):
         Start the execution of the push parser
         """
         try:
+            self._log.debug("Starting running the push message bus")
             # First, create and configure the message bus
             self._message_bus = MessageBus(self._config['Push'], self._log)
             # Register the parser with the message bus
@@ -351,7 +357,10 @@ class PSPushParser(multiprocessing.Process):
             }
 
         # Update the ttl dict with the just received MA, which will also update the TTL
-        self.ttldict[ma_host.hostname] = 1
+        if ma_host.hostname not in self.ttldict:
+            self.ttldict[ma_host.hostname] = 1
+        else:
+            self.ttldict.set_ttl(60*5)
 
         self._message_bus.sendParsed(self.topic_map[test_type]['topic'], to_return)
 

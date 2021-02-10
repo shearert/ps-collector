@@ -205,8 +205,11 @@ def main():
 
     # Start the push processor
     if isPush(cp):
+        log.debug("Starting the push parser")
         push_parser = PSPushParser(cp, log)
         push_parser.start()
+    else:
+        log.debug("Not starting the push parser")
 
     pool_size = 5
     if cp.has_option("Scheduler", "pool_size"):
