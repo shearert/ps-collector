@@ -360,7 +360,7 @@ class PSPushParser(multiprocessing.Process):
         if ma_host.hostname not in self.ttldict:
             self.ttldict[ma_host.hostname] = 1
         else:
-            self.ttldict.set_ttl(60*5)
+            self.ttldict.set_ttl(ma_host.hostname, 60*5)
 
         self._message_bus.sendParsed(self.topic_map[test_type]['topic'], to_return)
 
