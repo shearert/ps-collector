@@ -247,7 +247,7 @@ def main():
     mesh_interval_s = cp.getint("Scheduler", "mesh_interval") * MINUTE
     log.info("Will update the mesh config every %d seconds.", mesh_interval_s)
 
-    if isOneShot(cp):
+    if not isOneShot(cp):
         schedule.every(mesh_interval_s).to(mesh_interval_s + MINUTE).seconds.do(query_ps_mesh_job)
         schedule.every(10).seconds.do(cleanup_futures_job)
 
