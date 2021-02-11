@@ -114,6 +114,7 @@ class MessageBus:
         """
         Method to call the underlying function, while reseting the timer to run again
         """
+        logging.debug("Inside customTimeouts function")
         # Create another partial
         partial = functools.partial(MessageBus._customTimeouts, timer_func, timeout, connection)
 
