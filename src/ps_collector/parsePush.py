@@ -344,14 +344,19 @@ class PSPushParser(multiprocessing.Process):
                 int(timestamp): int(throughput)
             }
 
-        else:
-            if test_type == "latencybg":
-                lost_packets = parsed_object['result']['packets-lost'] / parsed_object['result']['packets-sent']
-                to_return['datapoints'] = {
-                    int(timestamp): lost_packets
-                }
-                self._message_bus.sendParsed("perfsonar.raw.packet-loss-rate", to_return)
+        elif test_type == "latencybg":
+            lost_packets = parsed_object['result']['packets-lost'] / parsed_object['result']['packets-sent']
+            to_return['datapoints'] = {
+                int(timestamp): lost_packets
+            }
+            self._message_bus.sendParsed("perfsonar.raw.packet-loss-rate", to_return)
 
+        elif test_type == "trace":
+            to_return['datapoints'] = {
+                int(timestamp): parsed_object['result'][self.topic_map[test_type]['datapoint']][0]
+            }
+
+        else:
             # For non latency tests
             to_return['datapoints'] = {
                 int(timestamp): parsed_object['result'][self.topic_map[test_type]['datapoint']]
