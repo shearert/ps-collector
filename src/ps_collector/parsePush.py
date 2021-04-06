@@ -330,6 +330,7 @@ class PSPushParser(multiprocessing.Process):
         # Use the start-time
         timestamp = dateutil.parser.parse(parsed_object['run']['start-time']).timestamp()
 
+        # For throughput tests, also include packet-retransmits
         if test_type == "throughput":
             # Create the retransmits event type
             retransmits = parsed_object['result']['summary']['summary']['retransmits']
@@ -338,26 +339,27 @@ class PSPushParser(multiprocessing.Process):
             }
             self._message_bus.sendParsed("perfsonar.raw.packet-retransmits", to_return)
 
-            # For throughput, we only need the throughput-bits in the result summary.
-            throughput = parsed_object['result']['summary']['summary']['throughput-bits']
-            to_return['datapoints'] = {
-                int(timestamp): int(throughput)
-            }
-
-        elif test_type == "latencybg":
+        # For latencybg tests, also include packet-loss-rate
+        if test_type == "latencybg":
             lost_packets = parsed_object['result']['packets-lost'] / parsed_object['result']['packets-sent']
             to_return['datapoints'] = {
                 int(timestamp): lost_packets
             }
             self._message_bus.sendParsed("perfsonar.raw.packet-loss-rate", to_return)
 
+        # Handle differences in datapoints structure
+        if test_type == "throughput":
+            # For throughput, we only need the throughput-bits in the result summary.
+            throughput = parsed_object['result']['summary']['summary']['throughput-bits']
+            to_return['datapoints'] = {
+                int(timestamp): int(throughput)
+            }
         elif test_type == "trace":
+            # Traceroute data is wrapped in an extra array
             to_return['datapoints'] = {
                 int(timestamp): parsed_object['result'][self.topic_map[test_type]['datapoint']][0]
             }
-
         else:
-            # For non latency tests
             to_return['datapoints'] = {
                 int(timestamp): parsed_object['result'][self.topic_map[test_type]['datapoint']]
             }
