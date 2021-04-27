@@ -1,8 +1,10 @@
 
+import copy
 import json
 import socket
 from socket import AddressFamily
 import dateutil.parser
+import isodate
 from urllib.parse import urlparse
 import pika
 from .pushlist import pushlist
@@ -355,10 +357,9 @@ class PSPushParser(multiprocessing.Process):
                 int(timestamp): int(throughput)
             }
         elif test_type == "trace":
-            # Traceroute data is wrapped in an extra array
-            to_return['datapoints'] = {
-                int(timestamp): parsed_object['result'][self.topic_map[test_type]['datapoint']][0]
-            }
+            path = copy.copy(parsed_object['result']['paths'][0])
+            trace_path_filter(path)
+            to_return['datapoints'] = { int(timestamp): path }
         else:
             to_return['datapoints'] = {
                 int(timestamp): parsed_object['result'][self.topic_map[test_type]['datapoint']]
@@ -375,4 +376,16 @@ class PSPushParser(multiprocessing.Process):
 
         return True
 
+    @staticmethod
+    def trace_path_filter(path):
+        '''Reformat traceroute path to match pull data'''
+        ttl = 0
+        for hop in path:
+            ttl += 1
+            if hop:
+                hop['ttl'] = ttl
+                hop['query'] = 1
 
+                rtt = hop.get('rtt', 'PT0S')
+                rtt = isodate.parse_duration(rtt).total_seconds()
+                hop['rtt'] = rtt
