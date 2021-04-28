@@ -358,7 +358,7 @@ class PSPushParser(multiprocessing.Process):
             }
         elif test_type == "trace":
             path = copy.copy(parsed_object['result']['paths'][0])
-            trace_path_filter(path)
+            PSPushParser.trace_path_filter(path)
             to_return['datapoints'] = { int(timestamp): path }
         else:
             to_return['datapoints'] = {
