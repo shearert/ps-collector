@@ -1,3 +1,5 @@
+[![Build PS collector image](https://github.com/sand-ci/ps-collector/actions/workflows/main.yaml/badge.svg)](https://github.com/sand-ci/ps-collector/actions/workflows/main.yaml)
+
 
 PS Collector
 ============
