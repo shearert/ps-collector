@@ -17,11 +17,11 @@ import pebble
 
 import ps_collector.config
 import ps_collector.sharedrabbitmq
-from ps_collector.rabbitmquploader import RabbitMQUploader
+# from ps_collector.rabbitmquploader import RabbitMQUploader
 from ps_collector.mesh import Mesh
 import ps_collector
 from ps_collector.monitoring import timed_execution, Monitoring
-from .parsePush import PSPushParser
+# from .parsePush import PSPushParser
 
 # The conversion factor from minutes to seconds:
 MINUTE = 60
@@ -157,28 +157,28 @@ def cleanup_futures(state):
                 state.futures[endpoint] = None
                 Monitoring.DecRequestsPending()
 
-def checkPushProcessor(push_parser_process: PSPushParser, config, log):
-    """
-    Check the status of the push parser, and restart if necessary
+# def checkPushProcessor(push_parser_process: PSPushParser, config, log):
+#     """
+#     Check the status of the push parser, and restart if necessary
 
-    :return Process: Returns the resulting process for the push parser
-    """
-    log.debug("Checking on the push parser")
-    # Check if the push parser is still running
-    if push_parser_process.is_alive():
-        return push_parser_process
+#     :return Process: Returns the resulting process for the push parser
+#     """
+#     log.debug("Checking on the push parser")
+#     # Check if the push parser is still running
+#     if push_parser_process.is_alive():
+#         return push_parser_process
 
-    # If we get here, then the push processor is dead, restart it!
-    log.error("The push processor died")
-    child_exception = push_parser_process.exception
-    if child_exception:
-        log.error("Exception from push process:")
-        log.error(child_exception[1])
+#     # If we get here, then the push processor is dead, restart it!
+#     log.error("The push processor died")
+#     child_exception = push_parser_process.exception
+#     if child_exception:
+#         log.error("Exception from push process:")
+#         log.error(child_exception[1])
 
-    # Restart the push processor
-    push_parser_process = PSPushParser(config, log)
-    push_parser_process.start()
-    return push_parser_process
+#     # Restart the push processor
+#     push_parser_process = PSPushParser(config, log)
+#     push_parser_process.start()
+#     return push_parser_process
 
 def isOneShot(cp):
     """
@@ -186,11 +186,11 @@ def isOneShot(cp):
     """
     return cp.get("Oneshot", "enable", fallback="false").lower() == "true"
 
-def isPush(cp):
-    """
-    :return bool: If the push parser should be enabled
-    """
-    return cp.get("Push", "enabled", fallback="false").lower() == "true"
+# def isPush(cp):
+#     """
+#     :return bool: If the push parser should be enabled
+#     """
+#     return cp.get("Push", "enabled", fallback="false").lower() == "true"
 
 
 def main():
@@ -204,12 +204,12 @@ def main():
     log = logging.getLogger("scheduler")
 
     # Start the push processor
-    if isPush(cp):
-        log.debug("Starting the push parser")
-        push_parser = PSPushParser(cp, log)
-        push_parser.start()
-    else:
-        log.debug("Not starting the push parser")
+    # if isPush(cp):
+    #     log.debug("Starting the push parser")
+    #     push_parser = PSPushParser(cp, log)
+    #     push_parser.start()
+    # else:
+    #     log.debug("Not starting the push parser")
 
     pool_size = 5
     if cp.has_option("Scheduler", "pool_size"):

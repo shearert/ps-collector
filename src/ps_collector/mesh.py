@@ -32,10 +32,10 @@ class Mesh:
             nodes.update(self._download_nodes(response_json=response_json))
 
         # Remove the nodes that exist in the pushlist
-        push_nodes = set(pushlist)
+        # push_nodes = set(pushlist)
 
         # Use set subtraction to remove the push nodes
-        return nodes - push_nodes
+        return nodes #- push_nodes
 
 
     def _download_nodes(self, mesh_url=None, response_json=None):
