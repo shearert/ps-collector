@@ -9,6 +9,8 @@ from time import strftime
 from time import localtime
 import traceback
 
+import pscheduler
+
 # Using the esmond_client instead of the rpm
 from .esmond.api.client.perfsonar.query import ApiFilters
 from .esmond.api.client.perfsonar.query import ApiConnect, ApiConnectWarning

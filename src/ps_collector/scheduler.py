@@ -16,8 +16,8 @@ import pebble
 
 
 import ps_collector.config
-import ps_collector.sharedrabbitmq
-# from ps_collector.rabbitmquploader import RabbitMQUploader
+# import ps_collector.sharedrabbitmq
+from ps_collector.rabbitmquploader import HTTPArchiverUploader
 from ps_collector.mesh import Mesh
 import ps_collector
 from ps_collector.monitoring import timed_execution, Monitoring
@@ -53,11 +53,11 @@ def query_ps_child(cp, endpoint, oneshot = False, query_range = ()):
     log.info("I query endpoint {}.".format(endpoint))
     with timed_execution(endpoint):
         if not oneshot:
-            uploader = RabbitMQUploader(connect=endpoint, config=cp, log = log)
+            uploader = HTTPArchiverUploader(connect=endpoint, config=cp, log = log)
         else:
             log.info("In child ps query, backprocessing...{} to {}".format(query_range[0], query_range[1]))
 
-            uploader = RabbitMQUploader(connect=endpoint, config=cp, log = log, backprocess_start=query_range[0], backprocess_end=query_range[1])
+            uploader = HTTPArchiverUploader(connect=endpoint, config=cp, log = log, backprocess_start=query_range[0], backprocess_end=query_range[1])
         return uploader.getData()
 
 
@@ -259,8 +259,8 @@ def main():
             while True:
                 schedule.run_pending()
                 monitor.process_messages()
-                if isPush(cp):
-                    push_parser = checkPushProcessor(push_parser, cp, log)
+                # if isPush(cp):
+                #     push_parser = checkPushProcessor(push_parser, cp, log)
                 time.sleep(1)
         else:
             pool.close()
